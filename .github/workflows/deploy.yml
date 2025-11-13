@@ -31,6 +31,6 @@ jobs:
         with:
           project: "tronclass"
           entrypoint: "main.ts"
-          root: ""
+          root: "."
           
           
