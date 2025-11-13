@@ -24,7 +24,7 @@ jobs:
           deno-version: v2.x
 
       - name: Build step
-        run: "deno run -A --allow-scripts npm:prisma generate --data-proxy"
+        run: "deno run -A --allow-scripts npm:prisma generate"
 
       - name: Upload to Deno Deploy
         uses: denoland/deployctl@v1
