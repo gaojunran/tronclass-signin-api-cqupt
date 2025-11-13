@@ -1,0 +1,85 @@
+/** biome-ignore-all lint/complexity/noStaticOnlyClass: <explanation> */
+import { DatabaseService } from "../utils/db.ts";
+
+// 日志操作类型
+export enum LogAction {
+  USER_ADD = "USER_ADD",
+  USER_REMOVE = "USER_REMOVE", 
+  USER_RENAME = "USER_RENAME",
+  USER_REFRESH_COOKIE = "USER_REFRESH_COOKIE",
+  USER_SET_AUTO = "USER_SET_AUTO",
+  SCAN_SIGNIN = "SCAN_SIGNIN",
+  SIGNIN_AUTO = "SIGNIN_AUTO",
+  OTHER = "OTHER"
+}
+
+export class LogService {
+  /**
+   * 添加日志记录
+   */
+  static async addLog(
+    action: LogAction, 
+    uaInfo: string, 
+    queryParams?: Record<string, any>, 
+    bodyParams?: Record<string, any>
+  ) {
+    // 合并查询参数和请求体参数
+    const data = {
+      ua_info: uaInfo,
+      query: queryParams || {},
+      body: bodyParams || {},
+      timestamp: new Date().toISOString()
+    };
+
+    return await DatabaseService.addLog(action, data);
+  }
+
+  /**
+   * 用户添加日志
+   */
+  static async logUserAdd(uaInfo: string, name: string) {
+    return await LogService.addLog(LogAction.USER_ADD, uaInfo, {}, { name });
+  }
+
+  /**
+   * 用户删除日志
+   */
+  static async logUserRemove(uaInfo: string, userId: string) {
+    return await LogService.addLog(LogAction.USER_REMOVE, uaInfo, { user_id: userId }, {});
+  }
+
+  /**
+   * 用户重命名日志
+   */
+  static async logUserRename(uaInfo: string, userId: string, newName: string) {
+    return await LogService.addLog(LogAction.USER_RENAME, uaInfo, { user_id: userId }, { new_name: newName });
+  }
+
+  /**
+   * 用户Cookie刷新日志
+   */
+  static async logUserRefreshCookie(uaInfo: string, userId: string) {
+    return await LogService.addLog(LogAction.USER_REFRESH_COOKIE, uaInfo, { user_id: userId }, {});
+  }
+
+  /**
+   * 用户自动签到设置日志
+   */
+  static async logUserSetAuto(uaInfo: string, userId: string, isAuto: boolean) {
+    return await LogService.addLog(LogAction.USER_SET_AUTO, uaInfo, { user_id: userId }, { is_auto: isAuto });
+  }
+
+  /**
+   * 扫码签到日志
+   */
+  static async logScanSignin(uaInfo: string, scanResult: string, userId?: string) {
+    return await LogService.addLog(LogAction.SCAN_SIGNIN, uaInfo, { user_id: userId }, { scan_result: scanResult });
+  }
+
+  /**
+   * 自动签到日志
+   */
+  static async logSigninAuto(uaInfo: string, scanHistoryId: string, userIds: string[]) {
+    return await LogService.addLog(LogAction.SIGNIN_AUTO, uaInfo, { scan_history_id: scanHistoryId }, { user_ids: userIds });
+  }
+}

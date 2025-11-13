@@ -1,0 +1,2 @@
+[env]
+DATABASE_URL = "postgresql://neondb_owner:npg_M4OXEaxznR6G@ep-long-king-a1v6g6ft-pooler.ap-southeast-1.aws.neon.tech/tronclass?sslmode=require&channel_binding=require"
