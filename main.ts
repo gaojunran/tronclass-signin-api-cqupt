@@ -6,7 +6,7 @@ const app = new Hono()
 
 // 配置CORS
 app.use('*', cors({
-  origin: ['http://localhost:3333', 'http://127.0.0.1:3333'],
+  origin: (origin) => origin || '*',
   allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowHeaders: ['Content-Type', 'Authorization'],
   exposeHeaders: ['Content-Length'],
