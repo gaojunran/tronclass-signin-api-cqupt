@@ -34,7 +34,6 @@ app.use("*", async (c, next) => {
  */
 app.get("/user/list", async (c) => {
   try {
-    console.log("new request!")
     const users = await UserService.getAllUsers();
     return c.json(users);
   } catch (error) {
@@ -207,7 +206,6 @@ app.post("/user/auto/:id", async (c) => {
  * /signin：扫码签到，上传扫码结果，自动给所有用户签到
  */
 app.post("/signin", async (c) => {
-  console.log("signin!")
   try {
     const body = c.get("body") as SigninRequest;
     const { ua_info, scan_result, user_id } = body;

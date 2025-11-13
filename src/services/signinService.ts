@@ -47,7 +47,6 @@ export class SigninService {
     parsedResult: any,
     scanHistoryId: string
   ) {
-    console.log("signin for user", user, parsedResult, scanHistoryId);
     try {
       const latestCookie = user.cookies?.[0]?.value;
       
@@ -70,7 +69,7 @@ export class SigninService {
       };
 
       // 调用签到API
-      const signUrl = `https://lms.tc.cqupt.edu.cn/api/rollcall/${parsedResult.rollcallId}/answer_qr_rollcall`;
+      const signUrl = `http://lms.tc.cqupt.edu.cn/api/rollcall/${parsedResult.rollcallId}/answer_qr_rollcall`;
       
       const response = await fetch(signUrl, {
         method: "PUT",

@@ -23,7 +23,7 @@ const config: runtime.GetPrismaClientConfig = {
       "value": "prisma-client"
     },
     "output": {
-      "value": "/Users/nebula/Work/tronclass-signin-api-cqupt/generated/prisma",
+      "value": "/Volumes/2tb-ssd/nebula/Projects/tronclass-signin-api-cqupt/generated/prisma",
       "fromEnvVar": null
     },
     "config": {
@@ -38,7 +38,7 @@ const config: runtime.GetPrismaClientConfig = {
       }
     ],
     "previewFeatures": [],
-    "sourceFilePath": "/Users/nebula/Work/tronclass-signin-api-cqupt/prisma/schema.prisma",
+    "sourceFilePath": "/Volumes/2tb-ssd/nebula/Projects/tronclass-signin-api-cqupt/prisma/schema.prisma",
     "isCustomOutput": true
   },
   "relativePath": "../../prisma",
