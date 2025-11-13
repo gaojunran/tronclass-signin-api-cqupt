@@ -1,16 +1,14 @@
 {
   "imports": {
-    "dotenv-cli": "npm:dotenv-cli@^11.0.0",
     "hono": "jsr:@hono/hono@^4.10.5",
     "@hono/hono/cors": "jsr:@hono/hono@^4.10.5/cors",
     "@prisma/client": "npm:@prisma/client@^6.19.0",
     "prisma": "npm:prisma@^5.22.0",
-    "postgres": "jsr:@db/sqlite@^0.12.0",
     "uuid": "jsr:@std/uuid@^1.0.7"
   },
   "tasks": {
-    "start": "deno run --allow-net --allow-env --allow-read --allow-write main.ts",
-    "db:generate": "deno run -A --unstable npm:prisma generate",
+    "start": "deno run -A main.ts",
+    "db:generate": "deno run -A --allow-scripts --unstable npm:prisma generate",
     "db:push": "deno run -A --unstable npm:prisma db push",
     "db:studio": "deno run -A --unstable npm:prisma studio"
   },
