@@ -1,6 +1,9 @@
-# TronClass 批量扫码签到 API
+# TronClass 批量扫码签到 - 学在重邮 API
 
-基于 Hono + Prisma + Deno 开发的后端 API，用于批量处理 TronClass 扫码签到。
+基于 Hono + Prisma + Deno 开发的后端 API，用于批量处理 TronClass 扫码签到。为 [tronclass-signin-app](https://github.com/gaojunran/tronclass-signin-app) 提供「学在重邮」的后端支持。
+
+> [!CAUTION]
+> 本项目仅供 **自部署** 技术交流，请勿用于违反校规或法律的用途。
 
 ## 功能特性
 
@@ -14,27 +17,14 @@
 
 ## 技术栈
 
-- **框架**: Hono (轻量级 Web 框架)
+- **框架**: Hono 
 - **运行时**: Deno
 - **数据库**: PostgreSQL + Prisma ORM
 - **语言**: TypeScript
 
 ## 快速开始
 
-### 1. 环境准备
-
-确保已安装:
-- Deno (>= 1.40.0)
-- PostgreSQL (>= 12.0)
-
-### 2. 克隆项目
-
-```bash
-git clone <repository-url>
-cd tronclass-signin-api-cqupt
-```
-
-### 3. 配置环境变量
+### 1. 配置环境变量
 
 复制环境变量文件并修改配置:
 
@@ -49,32 +39,25 @@ PORT=8000
 NODE_ENV=development
 ```
 
-### 4. 初始化数据库
-
-创建数据库并运行迁移:
+### 2. 配置 prisma
 
 ```bash
-# 使用提供的 SQL 文件创建数据库结构
-psql -U postgres -f .llm/db.sql
-
-# 生成 Prisma 客户端
-deno task db:generate
-
-# 推送数据库结构
-deno task db:push
+deno run -A npm:prisma generate
 ```
 
-### 5. 启动服务
+这适用于你已经搭建了数据库表的情况。如果你只有一个空数据库，可以：
 
 ```bash
-# 开发模式
-deno task start
-
-# 或直接运行
-deno run --allow-net --allow-env --allow-read --allow-write main.ts
+deno run -A npm:prisma migrate dev --name init
 ```
 
-服务将在 http://localhost:8000 启动
+这将生成迁移 SQL 并在你的数据库中执行。
+
+### 3. 启动服务
+
+```bash
+deno run -A main.ts
+```
 
 ## API 文档
 
@@ -82,12 +65,12 @@ deno run --allow-net --allow-env --allow-read --allow-write main.ts
 
 #### 获取用户列表
 ```http
-GET /api/user/list
+GET /user/list
 ```
 
 #### 添加用户
 ```http
-POST /api/user/add
+POST /user/add
 Content-Type: application/json
 
 {
@@ -98,7 +81,7 @@ Content-Type: application/json
 
 #### 删除用户
 ```http
-POST /api/user/remove/:id
+POST /user/remove/:id
 Content-Type: application/json
 
 {
@@ -108,7 +91,7 @@ Content-Type: application/json
 
 #### 重命名用户
 ```http
-POST /api/user/rename/:id
+POST /user/rename/:id
 Content-Type: application/json
 
 {
@@ -119,7 +102,7 @@ Content-Type: application/json
 
 #### 更新用户 Cookie
 ```http
-POST /api/user/refresh/:id
+POST /user/refresh/:id
 Content-Type: application/json
 
 {
@@ -130,7 +113,7 @@ Content-Type: application/json
 
 #### 设置自动签到
 ```http
-POST /api/user/auto/:id
+POST /user/auto/:id
 Content-Type: application/json
 
 {
@@ -143,7 +126,7 @@ Content-Type: application/json
 
 #### 扫码签到
 ```http
-POST /api/signin
+POST /signin
 Content-Type: application/json
 
 {
@@ -156,19 +139,19 @@ Content-Type: application/json
 
 #### 获取签到历史
 ```http
-GET /api/history/signin?count=10&user_id=用户ID
+GET /history/signin?count=10&user_id=用户ID
 ```
 
 #### 获取扫码历史
 ```http
-GET /api/history/scan?count=10&user_id=用户ID
+GET /history/scan?count=10&user_id=用户ID
 ```
 
 ### 系统状态
 
 #### 健康检查
 ```http
-GET /api/health
+GET /health
 ```
 
 ## 数据库结构
@@ -184,77 +167,6 @@ GET /api/health
 ### 视图
 
 - `user_with_cookie` - 带最新 Cookie 的用户视图
-
-## 开发指南
-
-### 项目结构
-
-```
-src/
-├── types/          # TypeScript 类型定义
-├── services/       # 业务逻辑服务
-├── utils/          # 工具函数
-├── routes/         # API 路由
-└── main.ts         # 应用入口
-```
-
-### 开发命令
-
-```bash
-# 启动开发服务器
-deno task start
-
-# 生成 Prisma 客户端
-deno task db:generate
-
-# 数据库迁移
-deno task db:push
-
-# 打开 Prisma Studio
-deno task db:studio
-```
-
-### 代码规范
-
-- 使用 TypeScript 严格模式
-- 遵循 RESTful API 设计原则
-- 所有数据库操作通过 Prisma 进行
-- 错误处理使用 try-catch 包装
-
-## 部署
-
-### 生产环境部署
-
-1. 设置生产环境变量
-2. 构建项目
-3. 使用 PM2 或类似工具管理进程
-
-```bash
-# 生产环境启动
-deno run --allow-net --allow-env --allow-read --allow-write main.ts
-```
-
-### Docker 部署
-
-```dockerfile
-FROM denoland/deno:alpine
-
-WORKDIR /app
-COPY . .
-
-RUN deno cache main.ts
-
-EXPOSE 8000
-
-CMD ["run", "--allow-net", "--allow-env", "--allow-read", "--allow-write", "main.ts"]
-```
-
-## 注意事项
-
-1. **安全性**: 生产环境请使用 HTTPS
-2. **数据库**: 定期备份数据库
-3. **日志**: 操作日志会记录所有敏感操作
-4. **CORS**: 根据前端域名配置 CORS
 
 ## 许可证
 
