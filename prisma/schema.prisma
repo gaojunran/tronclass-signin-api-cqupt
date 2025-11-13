@@ -1,6 +1,6 @@
 // Prisma Schema文件
 generator client {
-  provider = "prisma-client"
+  provider = "prisma-client-js"
   output = "../generated/prisma"
   runtime = "deno"
   moduleFormat = "esm"
