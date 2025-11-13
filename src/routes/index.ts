@@ -207,9 +207,10 @@ app.post("/user/auto/:id", async (c) => {
  * /signin：扫码签到，上传扫码结果，自动给所有用户签到
  */
 app.post("/signin", async (c) => {
+  console.log("signin!")
   try {
     const body = c.get("body") as SigninRequest;
-    const { ua_info, scan_result } = body;
+    const { ua_info, scan_result, user_id } = body;
     
     if (!scan_result) {
       return c.json({ error: "扫码结果不能为空" }, 400);
@@ -218,7 +219,7 @@ app.post("/signin", async (c) => {
     // 记录扫码日志
     await LogService.logScanSignin(ua_info, scan_result);
     
-    const result = await SigninService.processSignin(scan_result);
+    const result = await SigninService.processSignin(scan_result, user_id);
     
     // 记录自动签到日志
     const userIds = result.signin_results.map(r => r?.user_id).filter(Boolean) as string[];

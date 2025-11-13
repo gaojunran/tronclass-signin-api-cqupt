@@ -99,7 +99,7 @@ export function parseSignQrCode(t: string): ParsedScanResult {
     const parts = t.split("!").filter(part => part.length > 0);
     
     for (const part of parts) {
-      const splitted = part.split("~", 1); // 仅分割成两部分
+      const splitted = part.split("~", 2); // 仅分割成两部分
       if (splitted.length >= 2) {
         const r = splitted[0];
         const i = splitted[1];
@@ -145,7 +145,7 @@ export function parseSignQrCode(t: string): ParsedScanResult {
 // 测试函数
 if (import.meta.main) {
   const testResult = parseSignQrCode(
-    "/j?p=0~\\u00101zxy!3~1762926889fcb9acd6a8f3645f4743f5f7094c238a!4~\\u0010cpu7"
+    "/j?p=0~\x101zxy!3~1762926889fcb9acd6a8f3645f4743f5f7094c238a!4~\x10cpu7"
   );
   console.log("测试结果:", testResult);
 }

@@ -90,11 +90,11 @@ export class DatabaseService {
   }
 
   // 添加扫码历史
-  static async addScanHistory(result: string, userId?: string) {
+  static async addScanHistory(result: string, userId: string) {
     return await prisma.scanHistory.create({
       data: {
         result,
-        user_id: userId || null,
+        user_id: userId,
       },
     });
   }

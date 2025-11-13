@@ -15,7 +15,7 @@ export class SigninService {
   /**
    * 处理扫码签到
    */
-  static async processSignin(scanResult: string, userId?: string) {
+  static async processSignin(scanResult: string, userId: string) {
     // 1. 保存扫码历史
     const scanHistory = await DatabaseService.addScanHistory(scanResult, userId);
     
@@ -47,6 +47,7 @@ export class SigninService {
     parsedResult: any,
     scanHistoryId: string
   ) {
+    console.log("signin for user", user, parsedResult, scanHistoryId);
     try {
       const latestCookie = user.cookies?.[0]?.value;
       
