@@ -116,14 +116,14 @@ export class SigninService {
   /**
    * 获取扫码历史
    */
-  static async getScanHistory(count: number = 10, userId?: string) {
-    return await DatabaseService.getScanHistory(count, userId);
+  static async getScanHistory(count: number = 10, userId?: string, index: number = 0) {
+    return await DatabaseService.getScanHistory(count, userId, index);
   }
 
   /**
    * 获取签到历史
    */
-  static async getSigninHistory(count: number = 10, userId?: string) {
-    return await DatabaseService.getSigninHistory(count, userId);
+  static async getSigninHistory(count: number = 10, userId?: string, index: number = 0) {
+    return await DatabaseService.getSigninHistory(count, userId, index);
   }
 }

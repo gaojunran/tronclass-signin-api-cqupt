@@ -56,8 +56,8 @@ app.post("/user/add", async (c) => {
     
     const result = await UserService.addUser(name);
     
-    // 记录日志
-    await LogService.logUserAdd(ua_info, name);
+    // 记录日志（在业务逻辑之后）
+    await LogService.logUserAdd(ua_info, name, result);
     
     return c.json(result as AddUserResponse);
   } catch (error) {
@@ -87,8 +87,8 @@ app.post("/user/remove/:id", async (c) => {
     
     await UserService.removeUser(id);
     
-    // 记录日志
-    await LogService.logUserRemove(ua_info, id);
+    // 记录日志（在业务逻辑之后）
+    await LogService.logUserRemove(ua_info, id, { success: true });
     
     return c.json({ success: true });
   } catch (error) {
@@ -122,8 +122,8 @@ app.post("/user/rename/:id", async (c) => {
     
     const result = await UserService.renameUser(id, new_name);
     
-    // 记录日志
-    await LogService.logUserRename(ua_info, id, new_name);
+    // 记录日志（在业务逻辑之后）
+    await LogService.logUserRename(ua_info, id, new_name, result);
     
     return c.json(result);
   } catch (error) {
@@ -157,8 +157,8 @@ app.post("/user/refresh/:id", async (c) => {
     
     const result = await UserService.refreshCookie(id, cookie);
     
-    // 记录日志
-    await LogService.logUserRefreshCookie(ua_info, id);
+    // 记录日志（在业务逻辑之后）
+    await LogService.logUserRefreshCookie(ua_info, id, result);
     
     return c.json(result);
   } catch (error) {
@@ -192,8 +192,8 @@ app.post("/user/auto/:id", async (c) => {
     
     const result = await UserService.setUserAuto(id, is_auto);
     
-    // 记录日志
-    await LogService.logUserSetAuto(ua_info, id, is_auto);
+    // 记录日志（在业务逻辑之后）
+    await LogService.logUserSetAuto(ua_info, id, is_auto, result);
     
     return c.json(result);
   } catch (error) {
@@ -214,14 +214,14 @@ app.post("/signin", async (c) => {
       return c.json({ error: "扫码结果不能为空" }, 400);
     }
     
-    // 记录扫码日志
-    await LogService.logScanSignin(ua_info, scan_result);
-    
     const result = await SigninService.processSignin(scan_result, user_id);
+    
+    // 记录扫码日志（在业务逻辑之后）
+    await LogService.logScanSignin(ua_info, scan_result, user_id, result);
     
     // 记录自动签到日志
     const userIds = result.signin_results.map(r => r?.user_id).filter(Boolean) as string[];
-    await LogService.logSigninAuto(ua_info, result.scan_result.id, userIds);
+    await LogService.logSigninAuto(ua_info, result.scan_result.id, userIds, result);
     
     return c.json(result as SigninResponse);
   } catch (error) {
@@ -237,8 +237,9 @@ app.get("/history/signin", async (c) => {
   try {
     const count = parseInt(c.req.query("count") || "10");
     const userId = c.req.query("user_id");
+    const index = parseInt(c.req.query("index") || "0");
     
-    const history = await SigninService.getSigninHistory(count, userId);
+    const history = await SigninService.getSigninHistory(count, userId, index);
     return c.json(history);
   } catch (error) {
     console.error("获取签到历史失败:", error);
@@ -253,8 +254,9 @@ app.get("/history/scan", async (c) => {
   try {
     const count = parseInt(c.req.query("count") || "10");
     const userId = c.req.query("user_id");
+    const index = parseInt(c.req.query("index") || "0");
     
-    const history = await SigninService.getScanHistory(count, userId);
+    const history = await SigninService.getScanHistory(count, userId, index);
     return c.json(history);
   } catch (error) {
     console.error("获取扫码历史失败:", error);
@@ -265,6 +267,11 @@ app.get("/history/scan", async (c) => {
 // 健康检查接口
 app.get("/health", (c) => {
   return c.json({ status: "ok", timestamp: new Date().toISOString() });
+});
+
+// 新增仓库URL端点
+app.get("/backend/repo/url", (c) => {
+  return c.text("https://github.com/gaojunran/tronclass-signin-api-cqupt");
 });
 
 // 404处理

@@ -121,21 +121,23 @@ export class DatabaseService {
   }
 
   // 获取扫码历史
-  static async getScanHistory(count: number = 10, userId?: string) {
+  static async getScanHistory(count: number = 10, userId?: string, index: number = 0) {
     const where = userId ? { user_id: userId } : {};
     return await prisma.scanHistory.findMany({
       where,
       orderBy: { created_at: 'desc' },
+      skip: index * count,
       take: count,
     });
   }
 
   // 获取签到历史
-  static async getSigninHistory(count: number = 10, userId?: string) {
+  static async getSigninHistory(count: number = 10, userId?: string, index: number = 0) {
     const where = userId ? { user_id: userId } : {};
     return await prisma.signinHistory.findMany({
       where,
       orderBy: { created_at: 'desc' },
+      skip: index * count,
       take: count,
       include: {
         user: {
