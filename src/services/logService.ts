@@ -10,6 +10,7 @@ export enum LogAction {
   USER_SET_AUTO = "USER_SET_AUTO",
   SCAN_SIGNIN = "SCAN_SIGNIN",
   SIGNIN_AUTO = "SIGNIN_AUTO",
+  DIGITAL_SIGNIN = "DIGITAL_SIGNIN",
   OTHER = "OTHER"
 }
 
@@ -83,5 +84,12 @@ export class LogService {
    */
   static async logSigninAuto(uaInfo: string, scanHistoryId: string, userIds: string[], response?: any) {
     return await LogService.addLog(LogAction.SIGNIN_AUTO, uaInfo, { scan_history_id: scanHistoryId }, { user_ids: userIds }, response);
+  }
+
+  /**
+   * 数字签到日志
+   */
+  static async logDigitalSignin(uaInfo: string, data?: string, userId?: string, response?: any) {
+    return await LogService.addLog(LogAction.DIGITAL_SIGNIN, uaInfo, { user_id: userId }, { data }, response);
   }
 }

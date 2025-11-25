@@ -77,6 +77,13 @@ export interface SetAutoRequest {
 export interface SigninRequest {
   ua_info: string;
   scan_result: string;
+  user_id?: string;
+}
+
+export interface DigitalSigninRequest {
+  ua_info: string;
+  data?: string;
+  user_id?: string;
 }
 
 // API响应类型

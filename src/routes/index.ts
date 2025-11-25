@@ -9,6 +9,7 @@ import type {
   RefreshCookieRequest,
   SetAutoRequest,
   SigninRequest,
+  DigitalSigninRequest,
   AddUserResponse,
   SigninResponse,
   UserWithCookie
@@ -227,6 +228,26 @@ app.post("/signin", async (c) => {
   } catch (error) {
     console.error("扫码签到失败:", error);
     return c.json({ error: "扫码签到失败" }, 500);
+  }
+});
+
+/**
+ * /signin-digital：数字签到，自动给所有用户进行数字签到
+ */
+app.post("/signin-digital", async (c) => {
+  try {
+    const body = c.get("body") as DigitalSigninRequest;
+    const { ua_info, data, user_id } = body;
+    
+    const result = await SigninService.processDigitalSignin(data, user_id);
+    
+    // 记录数字签到日志
+    await LogService.logDigitalSignin(ua_info, data, user_id, result);
+    
+    return c.json(result);
+  } catch (error) {
+    console.error("数字签到失败:", error);
+    return c.json({ error: error.message || "数字签到失败" }, 500);
   }
 });
 

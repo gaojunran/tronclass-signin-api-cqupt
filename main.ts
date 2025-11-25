@@ -27,6 +27,7 @@ app.get('/', (c) => {
       '/user/refresh/:id': 'POST - 更新用户Cookie',
       '/user/auto/:id': 'POST - 设置自动签到',
       '/signin': 'POST - 扫码签到',
+      '/signin-digital': 'POST - 数字签到',
       '/history/signin': 'GET - 获取签到历史',
       '/history/scan': 'GET - 获取扫码历史',
       '/health': 'GET - 健康检查'
