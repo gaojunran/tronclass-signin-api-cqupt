@@ -36,7 +36,7 @@ app.get('/', (c) => {
 })
 
 // 挂载API路由
-app.route('/api', apiRoutes)
+app.route('/', apiRoutes)
 
 // 启动服务器
 const port = parseInt(Deno.env.get('PORT') || '8001')
