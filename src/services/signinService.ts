@@ -12,6 +12,9 @@ function generateUUID(): string {
 }
 
 export class SigninService {
+  // 破解锁：防止多个请求同时进行破解
+  private static isBruteForcing = false;
+
   /**
    * 处理扫码签到
    */
@@ -131,17 +134,22 @@ export class SigninService {
    * 处理数字签到
    */
   static async processDigitalSignin(data: string | undefined, userId: string) {
-    // 1. 获取需要自动签到的用户
+    // 1. 如果没有提供签到码，且正在破解中，则拒绝请求
+    if (!data && this.isBruteForcing) {
+      throw new Error('服务器正在破解签到码，请稍后再试或提供具体的签到码');
+    }
+
+    // 2. 获取需要自动签到的用户
     const autoUsers = await DatabaseService.getAutoSigninUsers();
     
     if (autoUsers.length === 0) {
       throw new Error('没有开启自动签到的用户');
     }
 
-    // 2. 获取活跃的签到任务
+    // 3. 获取活跃的签到任务
     const rollcallTasks = await this.getActiveRollcalls(autoUsers[0].cookies?.[0]?.value);
     
-    // 3. 筛选出数字签到任务
+    // 4. 筛选出数字签到任务
     const digitalTasks = rollcallTasks.filter((task: any) => 
       task.status === 'absent' && task.is_number && !task.is_radar
     );
@@ -150,7 +158,7 @@ export class SigninService {
       throw new Error('当前没有活跃的数字签到任务');
     }
 
-    // 4. 对每个数字签到任务进行处理
+    // 5. 对每个数字签到任务进行处理
     const allResults = [];
     
     for (const task of digitalTasks) {
@@ -161,9 +169,14 @@ export class SigninService {
         const results = await this.digitalSigninWithCode(autoUsers, rollcallId, data);
         allResults.push(...results);
       } else {
-        // 否则遍历 0000-9999
-        const results = await this.bruteForceDigitalSignin(autoUsers, rollcallId);
-        allResults.push(...results);
+        // 否则遍历 0000-9999（需要破解）
+        try {
+          this.isBruteForcing = true;
+          const results = await this.bruteForceDigitalSignin(autoUsers, rollcallId);
+          allResults.push(...results);
+        } finally {
+          this.isBruteForcing = false;
+        }
       }
     }
 
@@ -181,7 +194,7 @@ export class SigninService {
       throw new Error('没有可用的Cookie');
     }
 
-    const radarUrl = 'http://lms.tc.cqupt.edu.cn/api/radar/rollcalls';
+    const radarUrl = 'http://lms.tc.cqupt.edu.cn/api/radar/rollcalls?api_version=1.1.0';
     
     const response = await fetch(radarUrl, {
       method: 'GET',
@@ -197,6 +210,9 @@ export class SigninService {
     }
 
     const data = await response.json();
+
+    console.log('活跃签到任务:', data.rollcalls);
+
     return data.rollcalls || [];
   }
 
@@ -219,47 +235,113 @@ export class SigninService {
 
   /**
    * 遍历破解数字签到（0000-9999）
+   * 优化策略：
+   * 1. 只用一个用户尝试破解，找到正确的签到码
+   * 2. 破解过程中不保存历史记录
+   * 3. 找到正确码后，给所有用户签到并保存历史
    */
   private static async bruteForceDigitalSignin(
     users: any[],
     rollcallId: string
   ) {
+    // 选择第一个有效用户进行破解
+    const testUser = users.find(user => user.cookies?.[0]?.value);
+    
+    if (!testUser) {
+      throw new Error('没有可用的用户Cookie进行破解');
+    }
+
+    console.log(`开始破解数字签到码，使用用户: ${testUser.name}`);
+    
     // 使用并发控制，避免过多请求
     const batchSize = 50;
-    const allResults = [];
+    let correctCode: string | null = null;
 
+    // 遍历 0000-9999
     for (let i = 0; i < 10000; i += batchSize) {
       const batch = [];
       
       for (let j = i; j < Math.min(i + batchSize, 10000); j++) {
         const code = j.toString().padStart(4, '0');
-        
-        // 对每个用户尝试这个签到码
-        for (const user of users) {
-          batch.push(this.attemptDigitalSignin(user, rollcallId, code, null));
-        }
+        // 只用测试用户尝试，不保存历史
+        batch.push(this.tryDigitalCode(testUser, rollcallId, code));
       }
 
       const batchResults = await Promise.allSettled(batch);
       
       // 检查是否有成功的
-      const successResults = batchResults
-        .map(result => result.status === 'fulfilled' ? result.value : null)
-        .filter(result => result && result.response_code === 200);
+      for (let idx = 0; idx < batchResults.length; idx++) {
+        const result = batchResults[idx];
+        if (result.status === 'fulfilled' && result.value.success) {
+          correctCode = result.value.code;
+          console.log(`找到正确的签到码: ${correctCode}`);
+          break;
+        }
+      }
 
-      if (successResults.length > 0) {
-        allResults.push(...successResults);
-        // 找到正确的签到码后，停止遍历
-        console.log(`找到正确的签到码，停止遍历`);
+      if (correctCode) {
         break;
       }
     }
 
-    return allResults;
+    // 如果没有找到正确的签到码
+    if (!correctCode) {
+      throw new Error('未能找到正确的签到码（已尝试 0000-9999）');
+    }
+
+    // 使用正确的签到码给所有用户签到
+    console.log(`使用签到码 ${correctCode} 为所有用户签到`);
+    const results = await this.digitalSigninWithCode(users, rollcallId, correctCode);
+
+    return results;
   }
 
   /**
-   * 尝试使用指定的数字签到码进行签到
+   * 尝试数字签到码（用于破解，不保存历史）
+   * 返回是否成功以及签到码
+   */
+  private static async tryDigitalCode(
+    user: any,
+    rollcallId: string,
+    numberCode: string
+  ): Promise<{ success: boolean; code: string }> {
+    try {
+      const latestCookie = user.cookies?.[0]?.value;
+      
+      if (!latestCookie) {
+        return { success: false, code: numberCode };
+      }
+
+      // 构建请求数据
+      const requestData = {
+        deviceId: generateUUID(),
+        numberCode: numberCode,
+      };
+
+      // 调用数字签到API
+      const signUrl = `http://lms.tc.cqupt.edu.cn/api/rollcall/${rollcallId}/answer?api_version=1.1.0`;
+      
+      const response = await fetch(signUrl, {
+        method: 'PUT',
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Mobile Safari/537.36 Edg/141.0.0.0',
+          'Content-Type': 'application/json',
+          'Cookie': latestCookie,
+        },
+        body: JSON.stringify(requestData),
+        credentials: 'include',
+      });
+
+      // 判断是否成功（不保存历史）
+      return { success: response.ok, code: numberCode };
+      
+    } catch (error) {
+      return { success: false, code: numberCode };
+    }
+  }
+
+  /**
+   * 尝试使用指定的数字签到码进行签到（保存历史）
    */
   private static async attemptDigitalSignin(
     user: any,
@@ -296,22 +378,30 @@ export class SigninService {
 
       const responseData = await response.json();
       
-      // 保存签到历史
-      const signinHistory = await DatabaseService.addSigninHistory(
-        user.id,
-        latestCookie,
-        scanHistoryId,
-        requestData,
-        response.status,
-        responseData
-      );
+      if (response.ok) {
+        const signinHistory = await DatabaseService.addSigninHistory(
+          user.id,
+          latestCookie,
+          scanHistoryId,
+          requestData,
+          response.status,
+          responseData
+        );
 
-      // 如果签到成功，打印日志
-      if (response.status === 200) {
         console.log(`用户 ${user.name} 数字签到成功，签到码: ${numberCode}`);
+        return signinHistory;
+      } else {
+        // 失败时也保存，但标记为失败
+        const signinHistory = await DatabaseService.addSigninHistory(
+          user.id,
+          latestCookie,
+          scanHistoryId,
+          requestData,
+          response.status,
+          responseData
+        );
+        return signinHistory;
       }
-
-      return signinHistory;
       
     } catch (error) {
       console.error(`用户 ${user.name} 数字签到失败:`, error);
