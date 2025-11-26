@@ -1,19 +1,13 @@
 /** biome-ignore-all lint/complexity/noStaticOnlyClass: <explanation> */
 import { PrismaClient } from "../../generated/prisma/client.ts";
+import { PrismaPg } from '@prisma/adapter-pg';
 import { UserWithCookie } from "../types/index.ts";
 
-const prisma = new PrismaClient();
 
-// // 全局Prisma客户端实例
-// const globalForPrisma = globalThis as unknown as {
-//   prisma: PrismaClient | undefined;
-// };
-
-// export const prisma = globalForPrisma.prisma ?? new PrismaClient();
-
-// if (process.env.NODE_ENV !== "production") {
-//   globalForPrisma.prisma = prisma;
-// }
+const adapter = new PrismaPg({
+  connectionString: Deno.env.get("DATABASE_URL") || "",
+});
+const prisma = new PrismaClient({ adapter });
 
 // 数据库操作函数
 export class DatabaseService {
