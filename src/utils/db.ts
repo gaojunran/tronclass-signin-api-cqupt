@@ -1,19 +1,15 @@
 /** biome-ignore-all lint/complexity/noStaticOnlyClass: <explanation> */
-import { PrismaClient } from "../../generated/prisma/client.ts";
-import { PrismaPg } from '@prisma/adapter-pg';
-import { UserWithCookie } from "../types/index.ts";
+import { db } from "../db/index.ts";
+import { users, cookies, scanHistory, signinHistory, log } from "../db/schema.ts";
+import type { UserWithCookie } from "../types/index.ts";
+import { eq, desc, sql } from "drizzle-orm";
 
-
-const adapter = new PrismaPg({
-  connectionString: Deno.env.get("DATABASE_URL") || "",
-});
-const prisma = new PrismaClient({ adapter });
 
 // 数据库操作函数
 export class DatabaseService {
   // 获取所有用户（带最新cookie）
   static async getAllUsersWithCookies(): Promise<UserWithCookie[]> {
-    return await prisma.$queryRaw`
+    const result = await db.execute(sql`
       SELECT 
         u.id,
         u.name,
@@ -28,69 +24,72 @@ export class DatabaseService {
         ORDER BY created_at DESC
         LIMIT 1
       ) c ON TRUE
-    `;
+    `);
+    return result.rows as unknown as UserWithCookie[];
   }
 
   // 添加用户
   static async addUser(name: string, isAuto: boolean = true) {
-    return await prisma.user.create({
-      data: {
-        name,
-        is_auto: isAuto,
-      },
-    });
+    const [user] = await db.insert(users).values({
+      name,
+      isAuto,
+    }).returning();
+    return user;
   }
 
   // 删除用户
   static async removeUser(id: string) {
-    return await prisma.user.delete({
-      where: { id },
-    });
+    const [user] = await db.delete(users)
+      .where(eq(users.id, id))
+      .returning();
+    return user;
   }
 
   // 重命名用户
   static async renameUser(id: string, newName: string) {
-    return await prisma.user.update({
-      where: { id },
-      data: { name: newName },
-    });
+    const [user] = await db.update(users)
+      .set({ name: newName })
+      .where(eq(users.id, id))
+      .returning();
+    return user;
   }
 
   // 更新用户自动签到设置
   static async setUserAuto(id: string, isAuto: boolean) {
-    return await prisma.user.update({
-      where: { id },
-      data: { is_auto: isAuto },
-    });
+    const [user] = await db.update(users)
+      .set({ isAuto })
+      .where(eq(users.id, id))
+      .returning();
+    return user;
   }
 
   // 添加或更新Cookie
   static async addCookie(userId: string, value: string, expires?: Date) {
-    return await prisma.cookie.create({
-      data: {
-        user_id: userId,
-        value,
-        expires,
-      },
-    });
+    const [cookie] = await db.insert(cookies).values({
+      userId,
+      value,
+      expires,
+    }).returning();
+    return cookie;
   }
 
   // 获取用户的最新Cookie
   static async getLatestCookie(userId: string) {
-    return await prisma.cookie.findFirst({
-      where: { user_id: userId },
-      orderBy: { created_at: 'desc' },
-    });
+    const [cookie] = await db.select()
+      .from(cookies)
+      .where(eq(cookies.userId, userId))
+      .orderBy(desc(cookies.createdAt))
+      .limit(1);
+    return cookie;
   }
 
   // 添加扫码历史
   static async addScanHistory(result: string, userId: string) {
-    return await prisma.scanHistory.create({
-      data: {
-        result,
-        user_id: userId,
-      },
-    });
+    const [scan] = await db.insert(scanHistory).values({
+      result,
+      userId,
+    }).returning();
+    return scan;
   }
 
   // 添加签到历史
@@ -98,69 +97,104 @@ export class DatabaseService {
     userId: string,
     cookie: string | null,
     scanHistoryId: string | null,
-    requestData: any,
+    requestData: Record<string, unknown>,
     responseCode: number | null,
-    responseData: any | null
+    responseData: Record<string, unknown> | null
   ) {
-    return await prisma.signinHistory.create({
-      data: {
-        user_id: userId,
-        cookie,
-        scan_history_id: scanHistoryId,
-        request_data: requestData,
-        response_code: responseCode,
-        response_data: responseData,
-      },
-    });
+    const [signin] = await db.insert(signinHistory).values({
+      userId,
+      cookie,
+      scanHistoryId,
+      requestData,
+      responseCode,
+      responseData,
+    }).returning();
+    return signin;
   }
 
   // 获取扫码历史
   static async getScanHistory(count: number = 10, userId?: string, index: number = 0) {
-    const where = userId ? { user_id: userId } : {};
-    return await prisma.scanHistory.findMany({
-      where,
-      orderBy: { created_at: 'desc' },
-      skip: index * count,
-      take: count,
-    });
+    const query = db.select().from(scanHistory);
+    
+    if (userId) {
+      query.where(eq(scanHistory.userId, userId));
+    }
+    
+    const results = await query
+      .orderBy(desc(scanHistory.createdAt))
+      .limit(count)
+      .offset(index * count);
+    
+    return results;
   }
 
   // 获取签到历史
   static async getSigninHistory(count: number = 10, userId?: string, index: number = 0) {
-    const where = userId ? { user_id: userId } : {};
-    return await prisma.signinHistory.findMany({
-      where,
-      orderBy: { created_at: 'desc' },
-      skip: index * count,
-      take: count,
-      include: {
-        user: {
-          select: { name: true },
-        },
+    const query = db.select({
+      id: signinHistory.id,
+      userId: signinHistory.userId,
+      cookie: signinHistory.cookie,
+      scanHistoryId: signinHistory.scanHistoryId,
+      requestData: signinHistory.requestData,
+      responseCode: signinHistory.responseCode,
+      responseData: signinHistory.responseData,
+      createdAt: signinHistory.createdAt,
+      user: {
+        name: users.name,
       },
-    });
+    })
+    .from(signinHistory)
+    .leftJoin(users, eq(signinHistory.userId, users.id));
+    
+    if (userId) {
+      query.where(eq(signinHistory.userId, userId));
+    }
+    
+    const results = await query
+      .orderBy(desc(signinHistory.createdAt))
+      .limit(count)
+      .offset(index * count);
+    
+    return results;
   }
 
   // 添加日志
-  static async addLog(action: string, data: any) {
-    return await prisma.log.create({
-      data: {
-        action,
-        data,
-      },
-    });
+  static async addLog(action: string, data: Record<string, unknown>) {
+    const [logEntry] = await db.insert(log).values({
+      action,
+      data,
+    }).returning();
+    return logEntry;
   }
 
   // 获取所有需要自动签到的用户
   static async getAutoSigninUsers() {
-    return await prisma.user.findMany({
-      where: { is_auto: true },
-      include: {
-        cookies: {
-          orderBy: { created_at: 'desc' },
-          take: 1,
-        },
-      },
-    });
+    const results = await db.select({
+      id: users.id,
+      name: users.name,
+      isAuto: users.isAuto,
+      createdAt: users.createdAt,
+    })
+    .from(users)
+    .where(eq(users.isAuto, true));
+
+    // 为每个用户获取最新的 cookie
+    const usersWithCookies = await Promise.all(
+      results.map(async (user) => {
+        const [latestCookie] = await db.select()
+          .from(cookies)
+          .where(eq(cookies.userId, user.id))
+          .orderBy(desc(cookies.createdAt))
+          .limit(1);
+        
+        return {
+          ...user,
+          cookies: latestCookie ? [latestCookie] : [],
+        };
+      })
+    );
+
+    return usersWithCookies;
   }
 }
+

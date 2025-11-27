@@ -1,6 +1,6 @@
 # TronClass 批量扫码签到 - 学在重邮 API
 
-基于 Hono + Prisma + Deno 开发的后端 API，用于批量处理 TronClass 扫码签到。为 [tronclass-signin-app](https://github.com/gaojunran/tronclass-signin-app) 提供「学在重邮」的后端支持。
+基于 Hono + Drizzle ORM + Deno 开发的后端 API，用于批量处理 TronClass 扫码签到。为 [tronclass-signin-app](https://github.com/gaojunran/tronclass-signin-app) 提供「学在重邮」的后端支持。
 
 > [!CAUTION]
 > 本项目仅供 **自部署** 技术交流，请勿用于违反校规或法律的用途。
@@ -19,7 +19,7 @@
 
 - **框架**: Hono 
 - **运行时**: Deno
-- **数据库**: PostgreSQL + Prisma ORM
+- **数据库**: PostgreSQL + Drizzle ORM
 - **语言**: TypeScript
 
 ## 快速开始
@@ -39,19 +39,23 @@ PORT=8000
 NODE_ENV=development
 ```
 
-### 2. 配置 prisma
+### 2. 配置数据库
+
+如果你有一个空数据库，需要创建表结构：
 
 ```bash
-deno run -A npm:prisma generate
+# 推送模式到数据库（开发环境快速同步）
+deno task db:push
+
+# 或者生成并运行迁移文件（生产环境推荐）
+deno task db:generate
+deno task db:migrate
 ```
 
-这适用于你已经搭建了数据库表的情况。如果你只有一个空数据库，可以：
-
+可选：打开 Drizzle Studio 可视化管理数据库：
 ```bash
-deno run -A npm:prisma migrate dev --name init
+deno task db:studio
 ```
-
-这将生成迁移 SQL 并在你的数据库中执行。
 
 ### 3. 启动服务
 
@@ -164,9 +168,7 @@ GET /health
 - `signin_history` - 签到历史表
 - `log` - 操作日志表
 
-### 视图
-
-- `user_with_cookie` - 带最新 Cookie 的用户视图
+详细的表结构定义请参考 `src/db/schema.ts`。
 
 ## 许可证
 

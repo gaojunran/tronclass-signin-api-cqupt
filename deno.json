@@ -1,18 +1,19 @@
 {
   "imports": {
-    "@prisma/adapter-pg": "npm:@prisma/adapter-pg@^7.0.1",
+    "@neondatabase/serverless": "npm:@neondatabase/serverless@^1.0.2",
     "dotenv": "npm:dotenv@^17.2.3",
+    "drizzle-orm": "npm:drizzle-orm@^0.44.7",
+    "drizzle-kit": "npm:drizzle-kit@^0.30.1",
     "hono": "jsr:@hono/hono@^4.10.5",
     "@hono/hono/cors": "jsr:@hono/hono@^4.10.5/cors",
-    "@prisma/client": "npm:@prisma/client@^7.0.1",
-    "prisma": "npm:prisma@^7.0.1",
     "uuid": "jsr:@std/uuid@^1.0.7"
   },
   "tasks": {
     "start": "deno run -A main.ts",
-    "db:generate": "deno run -A --allow-scripts --unstable npm:prisma generate",
-    "db:push": "deno run -A --unstable npm:prisma db push",
-    "db:studio": "deno run -A --unstable npm:prisma studio"
+    "db:generate": "deno run -A npm:drizzle-kit generate",
+    "db:push": "deno run -A npm:drizzle-kit push",
+    "db:migrate": "deno run -A npm:drizzle-kit migrate",
+    "db:studio": "deno run -A npm:drizzle-kit studio"
   },
   "compilerOptions": {
     "jsx": "precompile",
