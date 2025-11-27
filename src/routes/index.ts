@@ -8,6 +8,7 @@ import type {
   RenameUserRequest,
   RefreshCookieRequest,
   SetAutoRequest,
+  UpdateIdentityRequest,
   SigninRequest,
   DigitalSigninRequest,
   AddUserResponse,
@@ -200,6 +201,41 @@ app.post("/user/auto/:id", async (c) => {
   } catch (error) {
     console.error("设置自动签到失败:", error);
     return c.json({ error: "设置自动签到失败" }, 500);
+  }
+});
+
+/**
+ * /user/identity/update/<id>：更新用户身份信息
+ */
+app.post("/user/identity/update/:id", async (c) => {
+  try {
+    const id = c.req.param("id");
+    const body = c.get("body") as UpdateIdentityRequest;
+    const { ua_info, account, password } = body;
+    
+    if (!id) {
+      return c.json({ error: "用户ID不能为空" }, 400);
+    }
+    
+    if (!account || !password) {
+      return c.json({ error: "账号和密码不能为空" }, 400);
+    }
+    
+    // 验证用户是否存在
+    const exists = await UserService.userExists(id);
+    if (!exists) {
+      return c.json({ error: "用户不存在" }, 404);
+    }
+    
+    const result = await UserService.updateIdentity(id, account, password);
+    
+    // 记录日志
+    await LogService.addLog(LogAction.OTHER, ua_info, { user_id: id }, { account, password: "***" }, result);
+    
+    return c.json(result);
+  } catch (error) {
+    console.error("更新用户身份信息失败:", error);
+    return c.json({ error: "更新用户身份信息失败" }, 500);
   }
 });
 

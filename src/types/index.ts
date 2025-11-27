@@ -3,6 +3,8 @@ export interface User {
   id: string;
   name: string;
   is_auto: boolean;
+  identity_account?: string | null;
+  identity_password?: string | null;
   created_at: Date;
 }
 
@@ -17,6 +19,8 @@ export interface Cookie {
 
 // 带有最新Cookie的用户类型
 export interface UserWithCookie extends User {
+  identity_account?: string | null;
+  identity_password?: string | null;
   latest_cookie: string | null;
   expires: Date | null;
 }
@@ -72,6 +76,12 @@ export interface RefreshCookieRequest {
 export interface SetAutoRequest {
   ua_info: string;
   is_auto: boolean;
+}
+
+export interface UpdateIdentityRequest {
+  ua_info: string;
+  account: string;
+  password: string;
 }
 
 export interface SigninRequest {

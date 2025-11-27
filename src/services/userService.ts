@@ -7,10 +7,12 @@ export class UserService {
    */
   static async getAllUsers() {
     const users = await DatabaseService.getAllUsersWithCookies();
-    return users.map((user: { id: any; name: any; is_auto: any; latest_cookie: any; expires: any; }) => ({
+    return users.map((user: { id: any; name: any; is_auto: any; identity_account: any; identity_password: any; latest_cookie: any; expires: any; }) => ({
       id: user.id,
       name: user.name,
       is_auto: user.is_auto,
+      identity_account: user.identity_account,
+      identity_password: user.identity_password,
       latest_cookie: user.latest_cookie,
       expires: user.expires,
     }));
@@ -46,6 +48,18 @@ export class UserService {
   static async setUserAuto(id: string, isAuto: boolean) {
     const user = await DatabaseService.setUserAuto(id, isAuto);
     return { id: user.id, is_auto: user.is_auto };
+  }
+
+  /**
+   * 更新用户身份信息
+   */
+  static async updateIdentity(id: string, account: string, password: string) {
+    const user = await DatabaseService.updateUserIdentity(id, account, password);
+    return { 
+      id: user.id, 
+      identity_account: user.identityAccount,
+      identity_password: user.identityPassword
+    };
   }
 
   /**

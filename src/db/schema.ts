@@ -1,46 +1,48 @@
-import { pgTable, uuid, text, boolean, timestamp, integer, json } from "drizzle-orm/pg-core";
+import { pgTable, text, boolean, timestamp, integer, jsonb } from "drizzle-orm/pg-core";
 
 // Users table
 export const users = pgTable("users", {
-  id: uuid("id").primaryKey().defaultRandom(),
+  id: text("id").primaryKey(),
   name: text("name").notNull(),
   isAuto: boolean("is_auto").notNull().default(true),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
+  identityAccount: text("identity_account"),
+  identityPassword: text("identity_password"),
+  createdAt: timestamp("created_at", { precision: 3, mode: 'date' }).notNull().defaultNow(),
 });
 
 // Cookies table
 export const cookies = pgTable("cookies", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  id: text("id").primaryKey(),
+  userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
   value: text("value").notNull(),
-  expires: timestamp("expires"),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
+  expires: timestamp("expires", { precision: 3, mode: 'date' }),
+  createdAt: timestamp("created_at", { precision: 3, mode: 'date' }).notNull().defaultNow(),
 });
 
 // Scan History table
 export const scanHistory = pgTable("scan_history", {
-  id: uuid("id").primaryKey().defaultRandom(),
+  id: text("id").primaryKey(),
   result: text("result").notNull(),
-  userId: uuid("user_id").references(() => users.id, { onDelete: "set null" }),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
+  userId: text("user_id").references(() => users.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at", { precision: 3, mode: 'date' }).notNull().defaultNow(),
 });
 
 // Signin History table
 export const signinHistory = pgTable("signin_history", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  id: text("id").primaryKey(),
+  userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
   cookie: text("cookie"),
-  scanHistoryId: uuid("scan_history_id").references(() => scanHistory.id, { onDelete: "set null" }),
-  requestData: json("request_data"),
+  scanHistoryId: text("scan_history_id").references(() => scanHistory.id, { onDelete: "set null" }),
+  requestData: jsonb("request_data").$type<Record<string, unknown>>(),
   responseCode: integer("response_code"),
-  responseData: json("response_data"),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
+  responseData: jsonb("response_data").$type<Record<string, unknown>>(),
+  createdAt: timestamp("created_at", { precision: 3, mode: 'date' }).notNull().defaultNow(),
 });
 
 // Log table
 export const log = pgTable("log", {
-  id: uuid("id").primaryKey().defaultRandom(),
+  id: text("id").primaryKey(),
   action: text("action").notNull(),
-  data: json("data").notNull(),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
+  data: jsonb("data").$type<Record<string, unknown>>().notNull(),
+  createdAt: timestamp("created_at", { precision: 3, mode: 'date' }).notNull().defaultNow(),
 });

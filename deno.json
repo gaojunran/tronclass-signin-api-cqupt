@@ -10,7 +10,6 @@
   },
   "tasks": {
     "start": "deno run -A main.ts",
-    "db:generate": "deno run -A npm:drizzle-kit generate",
     "db:push": "deno run -A npm:drizzle-kit push",
     "db:migrate": "deno run -A npm:drizzle-kit migrate",
     "db:studio": "deno run -A npm:drizzle-kit studio"

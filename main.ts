@@ -26,6 +26,7 @@ app.get('/', (c) => {
       '/user/rename/:id': 'POST - 重命名用户',
       '/user/refresh/:id': 'POST - 更新用户Cookie',
       '/user/auto/:id': 'POST - 设置自动签到',
+      '/user/identity/update/:id': 'POST - 更新用户身份信息',
       '/signin': 'POST - 扫码签到',
       '/signin-digital': 'POST - 数字签到',
       '/history/signin': 'GET - 获取签到历史',

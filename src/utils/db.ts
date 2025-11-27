@@ -3,6 +3,7 @@ import { db } from "../db/index.ts";
 import { users, cookies, scanHistory, signinHistory, log } from "../db/schema.ts";
 import type { UserWithCookie } from "../types/index.ts";
 import { eq, desc, sql } from "drizzle-orm";
+import { v4 } from "uuid";
 
 
 // 数据库操作函数
@@ -14,6 +15,8 @@ export class DatabaseService {
         u.id,
         u.name,
         u.is_auto,
+        u.identity_account,
+        u.identity_password,
         c.value AS latest_cookie,
         c.expires
       FROM users u
@@ -31,6 +34,7 @@ export class DatabaseService {
   // 添加用户
   static async addUser(name: string, isAuto: boolean = true) {
     const [user] = await db.insert(users).values({
+      id: v4.generate(),
       name,
       isAuto,
     }).returning();
@@ -63,9 +67,22 @@ export class DatabaseService {
     return user;
   }
 
+  // 更新用户身份信息
+  static async updateUserIdentity(id: string, account: string, password: string) {
+    const [user] = await db.update(users)
+      .set({ 
+        identityAccount: account,
+        identityPassword: password
+      })
+      .where(eq(users.id, id))
+      .returning();
+    return user;
+  }
+
   // 添加或更新Cookie
   static async addCookie(userId: string, value: string, expires?: Date) {
     const [cookie] = await db.insert(cookies).values({
+      id: v4.generate(),
       userId,
       value,
       expires,
@@ -86,6 +103,7 @@ export class DatabaseService {
   // 添加扫码历史
   static async addScanHistory(result: string, userId: string) {
     const [scan] = await db.insert(scanHistory).values({
+      id: v4.generate(),
       result,
       userId,
     }).returning();
@@ -102,6 +120,7 @@ export class DatabaseService {
     responseData: Record<string, unknown> | null
   ) {
     const [signin] = await db.insert(signinHistory).values({
+      id: v4.generate(),
       userId,
       cookie,
       scanHistoryId,
@@ -161,6 +180,7 @@ export class DatabaseService {
   // 添加日志
   static async addLog(action: string, data: Record<string, unknown>) {
     const [logEntry] = await db.insert(log).values({
+      id: v4.generate(),
       action,
       data,
     }).returning();
