@@ -36,7 +36,7 @@ export class DatabaseService {
     const [user] = await db.insert(users).values({
       id: v4.generate(),
       name,
-      isAuto,
+      is_auto: isAuto,
     }).returning();
     return user;
   }
@@ -61,7 +61,7 @@ export class DatabaseService {
   // 更新用户自动签到设置
   static async setUserAuto(id: string, isAuto: boolean) {
     const [user] = await db.update(users)
-      .set({ isAuto })
+      .set({ is_auto: isAuto })
       .where(eq(users.id, id))
       .returning();
     return user;
@@ -71,8 +71,8 @@ export class DatabaseService {
   static async updateUserIdentity(id: string, account: string, password: string) {
     const [user] = await db.update(users)
       .set({ 
-        identityAccount: account,
-        identityPassword: password
+        identity_account: account,
+        identity_password: password
       })
       .where(eq(users.id, id))
       .returning();
@@ -83,7 +83,7 @@ export class DatabaseService {
   static async addCookie(userId: string, value: string, expires?: Date) {
     const [cookie] = await db.insert(cookies).values({
       id: v4.generate(),
-      userId,
+      user_id: userId,
       value,
       expires,
     }).returning();
@@ -94,8 +94,8 @@ export class DatabaseService {
   static async getLatestCookie(userId: string) {
     const [cookie] = await db.select()
       .from(cookies)
-      .where(eq(cookies.userId, userId))
-      .orderBy(desc(cookies.createdAt))
+      .where(eq(cookies.user_id, userId))
+      .orderBy(desc(cookies.created_at))
       .limit(1);
     return cookie;
   }
@@ -105,7 +105,7 @@ export class DatabaseService {
     const [scan] = await db.insert(scanHistory).values({
       id: v4.generate(),
       result,
-      userId,
+      user_id: userId,
     }).returning();
     return scan;
   }
@@ -121,12 +121,12 @@ export class DatabaseService {
   ) {
     const [signin] = await db.insert(signinHistory).values({
       id: v4.generate(),
-      userId,
+      user_id: userId,
       cookie,
-      scanHistoryId,
-      requestData,
-      responseCode,
-      responseData,
+      scan_history_id: scanHistoryId,
+      request_data: requestData,
+      response_code: responseCode,
+      response_data: responseData,
     }).returning();
     return signin;
   }
@@ -136,11 +136,11 @@ export class DatabaseService {
     const query = db.select().from(scanHistory);
     
     if (userId) {
-      query.where(eq(scanHistory.userId, userId));
+      query.where(eq(scanHistory.user_id, userId));
     }
     
     const results = await query
-      .orderBy(desc(scanHistory.createdAt))
+      .orderBy(desc(scanHistory.created_at))
       .limit(count)
       .offset(index * count);
     
@@ -151,26 +151,26 @@ export class DatabaseService {
   static async getSigninHistory(count: number = 10, userId?: string, index: number = 0) {
     const query = db.select({
       id: signinHistory.id,
-      userId: signinHistory.userId,
+      user_id: signinHistory.user_id,
       cookie: signinHistory.cookie,
-      scanHistoryId: signinHistory.scanHistoryId,
-      requestData: signinHistory.requestData,
-      responseCode: signinHistory.responseCode,
-      responseData: signinHistory.responseData,
-      createdAt: signinHistory.createdAt,
+      scan_history_id: signinHistory.scan_history_id,
+      request_data: signinHistory.request_data,
+      response_code: signinHistory.response_code,
+      response_data: signinHistory.response_data,
+      created_at: signinHistory.created_at,
       user: {
         name: users.name,
       },
     })
     .from(signinHistory)
-    .leftJoin(users, eq(signinHistory.userId, users.id));
+    .leftJoin(users, eq(signinHistory.user_id, users.id));
     
     if (userId) {
-      query.where(eq(signinHistory.userId, userId));
+      query.where(eq(signinHistory.user_id, userId));
     }
     
     const results = await query
-      .orderBy(desc(signinHistory.createdAt))
+      .orderBy(desc(signinHistory.created_at))
       .limit(count)
       .offset(index * count);
     
@@ -192,19 +192,19 @@ export class DatabaseService {
     const results = await db.select({
       id: users.id,
       name: users.name,
-      isAuto: users.isAuto,
-      createdAt: users.createdAt,
+      is_auto: users.is_auto,
+      created_at: users.created_at,
     })
     .from(users)
-    .where(eq(users.isAuto, true));
+    .where(eq(users.is_auto, true));
 
     // 为每个用户获取最新的 cookie
     const usersWithCookies = await Promise.all(
       results.map(async (user) => {
         const [latestCookie] = await db.select()
           .from(cookies)
-          .where(eq(cookies.userId, user.id))
-          .orderBy(desc(cookies.createdAt))
+          .where(eq(cookies.user_id, user.id))
+          .orderBy(desc(cookies.created_at))
           .limit(1);
         
         return {
