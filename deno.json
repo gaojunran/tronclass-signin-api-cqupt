@@ -5,8 +5,7 @@
     "drizzle-orm": "npm:drizzle-orm@^0.44.7",
     "drizzle-kit": "npm:drizzle-kit@^0.30.1",
     "hono": "jsr:@hono/hono@^4.10.5",
-    "@hono/hono/cors": "jsr:@hono/hono@^4.10.5/cors",
-    "uuid": "jsr:@std/uuid@^1.0.7"
+    "@hono/hono/cors": "jsr:@hono/hono@^4.10.5/cors"
   },
   "tasks": {
     "start": "deno run -A main.ts",

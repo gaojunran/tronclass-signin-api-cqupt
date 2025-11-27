@@ -3,7 +3,7 @@ import { db } from "../db/index.ts";
 import { users, cookies, scanHistory, signinHistory, log } from "../db/schema.ts";
 import type { UserWithCookie } from "../types/index.ts";
 import { eq, desc, sql } from "drizzle-orm";
-import { v4 } from "uuid";
+
 
 
 // 数据库操作函数
@@ -34,7 +34,7 @@ export class DatabaseService {
   // 添加用户
   static async addUser(name: string, isAuto: boolean = true) {
     const [user] = await db.insert(users).values({
-      id: v4.generate(),
+      id: crypto.randomUUID(),
       name,
       is_auto: isAuto,
     }).returning();
@@ -82,7 +82,7 @@ export class DatabaseService {
   // 添加或更新Cookie
   static async addCookie(userId: string, value: string, expires?: Date) {
     const [cookie] = await db.insert(cookies).values({
-      id: v4.generate(),
+      id: crypto.randomUUID(),
       user_id: userId,
       value,
       expires,
@@ -103,7 +103,7 @@ export class DatabaseService {
   // 添加扫码历史
   static async addScanHistory(result: string, userId: string) {
     const [scan] = await db.insert(scanHistory).values({
-      id: v4.generate(),
+      id: crypto.randomUUID(),
       result,
       user_id: userId,
     }).returning();
@@ -120,7 +120,7 @@ export class DatabaseService {
     responseData: Record<string, unknown> | null
   ) {
     const [signin] = await db.insert(signinHistory).values({
-      id: v4.generate(),
+      id: crypto.randomUUID(),
       user_id: userId,
       cookie,
       scan_history_id: scanHistoryId,
@@ -180,7 +180,7 @@ export class DatabaseService {
   // 添加日志
   static async addLog(action: string, data: Record<string, unknown>) {
     const [logEntry] = await db.insert(log).values({
-      id: v4.generate(),
+      id: crypto.randomUUID(),
       action,
       data,
     }).returning();
