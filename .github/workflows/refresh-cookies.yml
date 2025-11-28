@@ -1,0 +1,65 @@
+name: Daily Cookie Refresh
+
+on:
+  schedule:
+    # Run daily at 10:00 AM UTC (adjust timezone as needed)
+    - cron: '*/10 * * * *'
+  workflow_dispatch: # Allow manual trigger
+
+jobs:
+  refresh-cookies:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - name: Install Chromium
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y chromium-browser chromium-chromedriver
+          
+      - name: Run cookie refresh script
+        id: refresh
+        run: |
+          deno run -A scripts/identity-refresh-cookies.ts > refresh_output.txt 2>&1
+          echo "exit_code=$?" >> $GITHUB_OUTPUT
+        continue-on-error: true
+
+      - name: Read output
+        id: output
+        run: |
+          OUTPUT=$(cat refresh_output.txt)
+          echo "output<<EOF" >> $GITHUB_OUTPUT
+          echo "$OUTPUT" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Send email notification
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          username: ${{ secrets.EMAIL_USERNAME }}
+          password: ${{ secrets.EMAIL_PASSWORD }}
+          subject: "Cookie Refresh Task - ${{ steps.refresh.outputs.exit_code == '0' && 'Success' || 'Failed' }}"
+          to: ${{ secrets.EMAIL_TO }}
+          from: GitHub Actions
+          body: |
+            Cookie Refresh Task Execution Report
+            =====================================
+            
+            Status: ${{ steps.refresh.outputs.exit_code == '0' && 'Success ✅' || 'Failed ❌' }}
+            Time: ${{ github.event.repository.updated_at }}
+            Repository: ${{ github.repository }}
+            
+            Execution Output:
+            -----------------
+            ${{ steps.output.outputs.output }}
+            
+            ---
+            This is an automated message from GitHub Actions.
