@@ -25,34 +25,24 @@ jobs:
         with:
           deno-version: v2.x
 
-      - name: Install system dependencies for Puppeteer
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            libnss3 \
-            libatk1.0-0 \
-            libatk-bridge2.0-0 \
-            libcups2 \
-            libdrm2 \
-            libxkbcommon0 \
-            libxcomposite1 \
-            libxdamage1 \
-            libxfixes3 \
-            libxrandr2 \
-            libgbm1 \
-            libxshmfence1 \
-            libglib2.0-0 \
-            libasound2t64 || sudo apt-get install -y libasound2
+      - name: Setup Chrome
+        id: setup-chrome
+        uses: browser-actions/setup-chrome@v1
+        with:
+          chrome-version: stable
+          install-dependencies: true
           
       - name: Check environment
         run: |
           echo "=== Environment Check ==="
           echo "Deno version: $(deno --version)"
+          echo "Chrome version: ${{ steps.setup-chrome.outputs.chrome-version }}"
+          echo "Chrome path: ${{ steps.setup-chrome.outputs.chrome-path }}"
           echo "Working directory: $(pwd)"
           echo "Script exists: $(test -f scripts/identity-refresh-cookies.ts && echo 'YES' || echo 'NO')"
           echo "API endpoint: https://tronclass.codenebula.deno.net"
           echo "Testing API connectivity..."
-          curl -v https://tronclass.codenebula.deno.net/user/list || echo "API connection failed"
+          curl -s https://tronclass.codenebula.deno.net/user/list > /dev/null && echo "✅ API accessible" || echo "❌ API connection failed"
           
       - name: Run cookie refresh script (with retry)
         id: refresh
@@ -63,6 +53,7 @@ jobs:
           retry_wait_seconds: 30
           command: |
             echo "Starting cookie refresh script..."
+            PUPPETEER_EXECUTABLE_PATH="${{ steps.setup-chrome.outputs.chrome-path }}" \
             deno run -A scripts/identity-refresh-cookies.ts 2>&1 | tee refresh_output.txt
             EXIT_CODE=${PIPESTATUS[0]}
             echo "Script exit code: $EXIT_CODE"

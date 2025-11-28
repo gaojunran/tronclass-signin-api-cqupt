@@ -206,9 +206,11 @@ async function main() {
 
     // Launch browser
     console.log("\n🌐 Launching browser...");
-    console.log("Puppeteer will automatically download and use Chromium if needed");
     
-    const launchOptions = {
+    // Check for Chrome path from environment variable (set by GitHub Actions)
+    const chromePath = Deno.env.get("PUPPETEER_EXECUTABLE_PATH");
+    
+    const launchOptions: puppeteer.LaunchOptions = {
       headless: true,
       args: [
         "--no-sandbox",
@@ -219,6 +221,14 @@ async function main() {
         "--disable-extensions",
       ],
     };
+    
+    // Use Chrome from environment if available, otherwise let Puppeteer handle it
+    if (chromePath) {
+      console.log(`Using Chrome from environment: ${chromePath}`);
+      launchOptions.executablePath = chromePath;
+    } else {
+      console.log("No PUPPETEER_EXECUTABLE_PATH set, Puppeteer will use default Chrome");
+    }
     
     console.log("Launch options:", JSON.stringify(launchOptions, null, 2));
     
