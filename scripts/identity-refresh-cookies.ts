@@ -165,6 +165,17 @@ async function refreshCookieForUser(
     console.error(`[${user.name}] ❌ Cookie refresh failed:`, result.error);
   } finally {
     if (page) {
+      // Clear all cookies before closing the page
+      console.log(`[${user.name}] Clearing browser cookies...`);
+      try {
+        const client = await page.createCDPSession();
+        await client.send('Network.clearBrowserCookies');
+        await client.send('Network.clearBrowserCache');
+        console.log(`[${user.name}] Browser cookies cleared`);
+      } catch (clearError) {
+        console.warn(`[${user.name}] Failed to clear cookies:`, clearError);
+      }
+      
       await page.close();
     }
   }
