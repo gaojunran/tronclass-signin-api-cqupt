@@ -319,7 +319,7 @@ export class SigninService {
       };
 
       // 调用数字签到API
-      const signUrl = `http://lms.tc.cqupt.edu.cn/api/rollcall/${rollcallId}/answer?api_version=1.1.0`;
+      const signUrl = `http://lms.tc.cqupt.edu.cn/api/rollcall/${rollcallId}/answer_number_rollcall`;
       
       const response = await fetch(signUrl, {
         method: 'PUT',
@@ -363,7 +363,7 @@ export class SigninService {
       };
 
       // 调用数字签到API
-      const signUrl = `http://lms.tc.cqupt.edu.cn/api/rollcall/${rollcallId}/answer?api_version=1.76`;
+      const signUrl = `http://lms.tc.cqupt.edu.cn/api/rollcall/${rollcallId}/answer_number_rollcall`;
       
       const response = await fetch(signUrl, {
         method: 'PUT',
