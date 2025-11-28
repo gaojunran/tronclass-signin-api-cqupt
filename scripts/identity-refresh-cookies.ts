@@ -4,33 +4,6 @@ const API_ENDPOINT = "https://tronclass.codenebula.deno.net";
 const LOGIN_URL = "http://lms.tc.cqupt.edu.cn/";
 const TARGET_URL = "http://lms.tc.cqupt.edu.cn/user/index#/";
 
-/**
- * Find Chromium executable path
- */
-function findChromiumPath(): string | undefined {
-  const possiblePaths = [
-    "/usr/bin/chromium-browser",
-    "/usr/bin/chromium",
-    "/usr/bin/google-chrome",
-    "/usr/bin/google-chrome-stable",
-  ];
-
-  for (const path of possiblePaths) {
-    try {
-      const stat = Deno.statSync(path);
-      if (stat.isFile) {
-        console.log(`✅ Found Chromium at: ${path}`);
-        return path;
-      }
-    } catch {
-      // File doesn't exist, continue
-    }
-  }
-
-  console.log("⚠️ No Chromium executable found in standard paths");
-  return undefined;
-}
-
 interface User {
   id: string;
   name: string;
@@ -233,34 +206,29 @@ async function main() {
 
     // Launch browser
     console.log("\n🌐 Launching browser...");
+    console.log("Puppeteer will automatically download and use Chromium if needed");
     
-    const chromiumPath = findChromiumPath();
-    const launchOptions: any = {
+    const launchOptions = {
       headless: true,
       args: [
         "--no-sandbox",
         "--disable-setuid-sandbox",
         "--disable-dev-shm-usage",
         "--disable-gpu",
+        "--disable-software-rasterizer",
+        "--disable-extensions",
       ],
     };
-    
-    if (chromiumPath) {
-      launchOptions.executablePath = chromiumPath;
-    } else {
-      console.log("⚠️ Using default Puppeteer Chromium (will download if needed)");
-    }
     
     console.log("Launch options:", JSON.stringify(launchOptions, null, 2));
     
     try {
       browser = await puppeteer.launch(launchOptions);
+      console.log("✅ Browser launched successfully");
     } catch (launchError) {
       console.error("❌ Failed to launch browser:", launchError);
       throw new Error(`Browser launch failed: ${launchError}`);
     }
-
-    console.log("Browser launched successfully");
 
     // Process each user
     for (const user of usersWithCredentials) {
