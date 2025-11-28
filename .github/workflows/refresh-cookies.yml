@@ -5,6 +5,10 @@ on:
     # Run daily at 10:00 AM UTC (adjust timezone as needed)
     - cron: '*/10 * * * *'
   workflow_dispatch: # Allow manual trigger
+  push:
+    branches:
+      - main
+      - dev
 
 jobs:
   refresh-cookies:
@@ -24,11 +28,33 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y chromium-browser chromium-chromedriver
           
+      - name: Verify Chromium installation
+        run: |
+          echo "Checking Chromium installation..."
+          which chromium-browser || echo "chromium-browser not found"
+          which chromium || echo "chromium not found"
+          ls -la /usr/bin/chromium* || echo "No chromium executables found"
+          chromium-browser --version || chromium --version || echo "Cannot get version"
+          
+      - name: Check environment
+        run: |
+          echo "=== Environment Check ==="
+          echo "Deno version: $(deno --version)"
+          echo "Working directory: $(pwd)"
+          echo "Script exists: $(test -f scripts/identity-refresh-cookies.ts && echo 'YES' || echo 'NO')"
+          echo "API endpoint: https://tronclass.codenebula.deno.net"
+          echo "Testing API connectivity..."
+          curl -v https://tronclass.codenebula.deno.net/user/list || echo "API connection failed"
+          
       - name: Run cookie refresh script
         id: refresh
         run: |
-          deno run -A scripts/identity-refresh-cookies.ts > refresh_output.txt 2>&1
-          echo "exit_code=$?" >> $GITHUB_OUTPUT
+          echo "Starting cookie refresh script..."
+          deno run -A scripts/identity-refresh-cookies.ts 2>&1 | tee refresh_output.txt
+          EXIT_CODE=${PIPESTATUS[0]}
+          echo "Script exit code: $EXIT_CODE"
+          echo "exit_code=$EXIT_CODE" >> $GITHUB_OUTPUT
+          exit $EXIT_CODE
         continue-on-error: true
 
       - name: Read output
