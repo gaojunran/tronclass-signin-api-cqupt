@@ -167,7 +167,7 @@ async function refreshCookieForUser(
     );
 
     // Additional wait to ensure page is fully rendered
-    await page.waitForTimeout(2000);
+    await new Promise((resolve) => setTimeout(resolve, 2000));
 
     console.log(`[${user.name}] Extracting cookies...`);
 
