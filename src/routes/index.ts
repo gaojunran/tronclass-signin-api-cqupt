@@ -350,7 +350,9 @@ app.get("/todos", async (c) => {
     
     if (!response.ok) {
       console.error(`获取todos失败: HTTP ${response.status}`);
-      return c.json({ error: `获取todos失败: HTTP ${response.status}` }, response.status);
+      return c.json({ 
+        error: `获取todos失败: HTTP ${response.status}，可能需要刷新Cookie`
+      }, response.status);
     }
     
     const data = await response.json();
