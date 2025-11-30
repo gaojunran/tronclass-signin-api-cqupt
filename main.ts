@@ -29,6 +29,7 @@ app.get('/', (c) => {
       '/user/identity/update/:id': 'POST - 更新用户身份信息',
       '/signin': 'POST - 扫码签到',
       '/signin-digital': 'POST - 数字签到',
+      '/todos': 'GET - 获取用户待办事项',
       '/history/signin': 'GET - 获取签到历史',
       '/history/scan': 'GET - 获取扫码历史',
       '/health': 'GET - 健康检查'

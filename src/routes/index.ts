@@ -321,6 +321,46 @@ app.get("/history/scan", async (c) => {
   }
 });
 
+/**
+ * /todos：获取用户的待办事项
+ * GET /todos?user_id=<id>
+ */
+app.get("/todos", async (c) => {
+  try {
+    const userId = c.req.query("user_id");
+    
+    if (!userId) {
+      return c.json({ error: "user_id参数不能为空" }, 400);
+    }
+    
+    // 验证用户是否存在并获取最新cookie
+    const user = await UserService.getUser(userId);
+    
+    if (!user.latest_cookie) {
+      return c.json({ error: "用户没有可用的Cookie" }, 400);
+    }
+    
+    // 使用用户的cookie请求todos API
+    const response = await fetch("http://lms.tc.cqupt.edu.cn/api/todos", {
+      method: "GET",
+      headers: {
+        "Cookie": user.latest_cookie,
+      },
+    });
+    
+    if (!response.ok) {
+      console.error(`获取todos失败: HTTP ${response.status}`);
+      return c.json({ error: `获取todos失败: HTTP ${response.status}` }, response.status);
+    }
+    
+    const data = await response.json();
+    return c.json(data);
+  } catch (error) {
+    console.error("获取todos失败:", error);
+    return c.json({ error: error.message || "获取todos失败" }, 500);
+  }
+});
+
 // 健康检查接口
 app.get("/health", (c) => {
   return c.json({ status: "ok", timestamp: new Date().toISOString() });
