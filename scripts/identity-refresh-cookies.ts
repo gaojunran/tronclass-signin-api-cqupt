@@ -44,7 +44,7 @@ async function fetchUsers(): Promise<User[]> {
  */
 async function updateUserCookie(
   userId: string,
-  cookie: string
+  cookie: string,
 ): Promise<boolean> {
   try {
     const response = await fetch(`${API_ENDPOINT}/user/refresh/${userId}`, {
@@ -61,7 +61,7 @@ async function updateUserCookie(
     if (!response.ok) {
       const errorData = await response.json();
       throw new Error(
-        `Failed to update cookie: ${errorData.error || response.statusText}`
+        `Failed to update cookie: ${errorData.error || response.statusText}`,
       );
     }
 
@@ -77,7 +77,7 @@ async function updateUserCookie(
  */
 async function refreshCookieForUser(
   user: User,
-  browser: puppeteer.Browser
+  browser: puppeteer.Browser,
 ): Promise<RefreshResult> {
   const result: RefreshResult = {
     userId: user.id,
@@ -136,7 +136,7 @@ async function refreshCookieForUser(
     await page.waitForFunction(
       (targetUrl) => window.location.href.startsWith(targetUrl),
       { timeout: 30000 },
-      TARGET_URL
+      TARGET_URL,
     );
 
     // Additional wait to ensure page is fully rendered
@@ -169,13 +169,13 @@ async function refreshCookieForUser(
       console.log(`[${user.name}] Clearing browser cookies...`);
       try {
         const client = await page.createCDPSession();
-        await client.send('Network.clearBrowserCookies');
-        await client.send('Network.clearBrowserCache');
+        await client.send("Network.clearBrowserCookies");
+        await client.send("Network.clearBrowserCache");
         console.log(`[${user.name}] Browser cookies cleared`);
       } catch (clearError) {
         console.warn(`[${user.name}] Failed to clear cookies:`, clearError);
       }
-      
+
       await page.close();
     }
   }
@@ -203,11 +203,11 @@ async function main() {
 
     // Filter users with identity credentials
     const usersWithCredentials = users.filter(
-      (user) => user.identity_account && user.identity_password
+      (user) => user.identity_account && user.identity_password,
     );
 
     console.log(
-      `Found ${usersWithCredentials.length} users with identity credentials`
+      `Found ${usersWithCredentials.length} users with identity credentials`,
     );
 
     if (usersWithCredentials.length === 0) {
@@ -217,12 +217,13 @@ async function main() {
 
     // Launch browser
     console.log("\n🌐 Launching browser...");
-    
+
     // Check for Chrome path from environment variable (set by GitHub Actions)
     const chromePath = Deno.env.get("PUPPETEER_EXECUTABLE_PATH");
-    
+
     const launchOptions: puppeteer.LaunchOptions = {
       headless: true,
+      pipe: true,
       args: [
         "--no-sandbox",
         "--disable-setuid-sandbox",
@@ -232,17 +233,19 @@ async function main() {
         "--disable-extensions",
       ],
     };
-    
+
     // Use Chrome from environment if available, otherwise let Puppeteer handle it
     if (chromePath) {
       console.log(`Using Chrome from environment: ${chromePath}`);
       launchOptions.executablePath = chromePath;
     } else {
-      console.log("No PUPPETEER_EXECUTABLE_PATH set, Puppeteer will use default Chrome");
+      console.log(
+        "No PUPPETEER_EXECUTABLE_PATH set, Puppeteer will use default Chrome",
+      );
     }
-    
+
     console.log("Launch options:", JSON.stringify(launchOptions, null, 2));
-    
+
     try {
       browser = await puppeteer.launch(launchOptions);
       console.log("✅ Browser launched successfully");
