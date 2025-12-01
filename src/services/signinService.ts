@@ -146,10 +146,16 @@ export class SigninService {
       throw new Error('没有开启自动签到的用户');
     }
 
-    // 3. 获取活跃的签到任务
-    const rollcallTasks = await this.getActiveRollcalls(autoUsers[0].cookies?.[0]?.value);
+    // 3. 获取请求用户的最新 cookie
+    const latestCookie = await DatabaseService.getLatestCookie(userId);
+    if (!latestCookie) {
+      throw new Error('用户没有可用的 Cookie');
+    }
+
+    // 4. 获取活跃的签到任务
+    const rollcallTasks = await this.getActiveRollcalls(latestCookie.value);
     
-    // 4. 筛选出数字签到任务
+    // 5. 筛选出数字签到任务
     const digitalTasks = rollcallTasks.filter((task: any) => 
       task.status === 'absent' && task.is_number && !task.is_radar
     );
@@ -158,7 +164,7 @@ export class SigninService {
       throw new Error('当前没有活跃的数字签到任务');
     }
 
-    // 5. 对每个数字签到任务进行处理
+    // 6. 对每个数字签到任务进行处理
     const allResults = [];
     
     for (const task of digitalTasks) {
