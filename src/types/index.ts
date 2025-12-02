@@ -5,6 +5,7 @@ export interface User {
   is_auto: boolean;
   identity_account?: string | null;
   identity_password?: string | null;
+  qq_account?: string | null;
   created_at: Date;
 }
 
@@ -21,6 +22,7 @@ export interface Cookie {
 export interface UserWithCookie extends User {
   identity_account?: string | null;
   identity_password?: string | null;
+  qq_account?: string | null;
   latest_cookie: string | null;
   expires: Date | null;
 }
