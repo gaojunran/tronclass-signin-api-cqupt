@@ -344,6 +344,8 @@ async function main() {
       text: notificationText.trim()
     };
 
+    console.log("Notification payload:", JSON.stringify(notificationPayload, null, 2));
+
     const notificationResponse = await fetch("https://air.codenebula.deno.net/qq/group1/send", {
       method: "POST",
       headers: {
