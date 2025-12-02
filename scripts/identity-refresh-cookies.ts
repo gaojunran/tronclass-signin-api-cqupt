@@ -10,6 +10,7 @@ interface User {
   is_auto: boolean;
   identity_account?: string | null;
   identity_password?: string | null;
+  qq_account?: string | null;
   latest_cookie: string | null;
   expires: string | null;
 }
@@ -194,6 +195,7 @@ async function main() {
 
   let browser: puppeteer.Browser | null = null;
   const results: RefreshResult[] = [];
+  let usersWithCredentials: User[] = [];
 
   try {
     // Fetch all users
@@ -202,7 +204,7 @@ async function main() {
     console.log(`Found ${users.length} total users`);
 
     // Filter users with identity credentials
-    const usersWithCredentials = users.filter(
+    usersWithCredentials = users.filter(
       (user) => user.identity_account && user.identity_password,
     );
 
@@ -297,6 +299,67 @@ async function main() {
       .forEach((r) => {
         console.log(`   - ${r.userName} (${r.userId}): ${r.error}`);
       });
+  }
+
+  console.log("\n" + "=".repeat(60));
+
+  // Send notification to QQ group
+  try {
+    console.log("\n📤 Sending notification to QQ group...");
+    
+    // Collect QQ accounts from processed users
+    const qqAccounts: string[] = [];
+    for (const result of results) {
+      const user = usersWithCredentials.find(u => u.id === result.userId);
+      if (user?.qq_account) {
+        qqAccounts.push(user.qq_account);
+      }
+    }
+
+    // Build notification text
+    let notificationText = `🔄 Cookie 刷新任务完成\n\n`;
+    notificationText += `📊 总计: ${results.length} | 成功: ${successCount} ✅ | 失败: ${failureCount} ❌\n\n`;
+    
+    if (successCount > 0) {
+      notificationText += `✅ 成功用户:\n`;
+      results
+        .filter(r => r.success)
+        .forEach(r => {
+          notificationText += `   • ${r.userName}\n`;
+        });
+      notificationText += `\n`;
+    }
+    
+    if (failureCount > 0) {
+      notificationText += `❌ 失败用户:\n`;
+      results
+        .filter(r => !r.success)
+        .forEach(r => {
+          notificationText += `   • ${r.userName}: ${r.error}\n`;
+        });
+    }
+
+    const notificationPayload = {
+      ats: qqAccounts,
+      text: notificationText.trim()
+    };
+
+    const notificationResponse = await fetch("https://air.codenebula.deno.net/qq/group1/send", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(notificationPayload),
+    });
+
+    if (notificationResponse.ok) {
+      console.log("✅ Notification sent successfully");
+    } else {
+      console.warn(`⚠️  Failed to send notification: ${notificationResponse.statusText}`);
+    }
+  } catch (notificationError) {
+    console.warn("⚠️  Failed to send notification:", notificationError);
+    // Don't fail the entire task if notification fails
   }
 
   console.log("\n" + "=".repeat(60));

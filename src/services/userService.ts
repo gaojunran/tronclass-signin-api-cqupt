@@ -7,12 +7,13 @@ export class UserService {
    */
   static async getAllUsers() {
     const users = await DatabaseService.getAllUsersWithCookies();
-    return users.map((user: { id: any; name: any; is_auto: any; identity_account: any; identity_password: any; latest_cookie: any; expires: any; }) => ({
+    return users.map((user: { id: any; name: any; is_auto: any; identity_account: any; identity_password: any; qq_account: any; latest_cookie: any; expires: any; }) => ({
       id: user.id,
       name: user.name,
       is_auto: user.is_auto,
       identity_account: user.identity_account,
       identity_password: user.identity_password,
+      qq_account: user.qq_account,
       latest_cookie: user.latest_cookie,
       expires: user.expires,
     }));
