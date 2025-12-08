@@ -31,14 +31,24 @@ export class SigninService {
     // 3. 获取需要自动签到的用户
     const autoUsers = await DatabaseService.getAutoSigninUsers();
 
-    // 4. 并发处理所有用户的签到
+    // 4. 过滤掉请假的用户
+    const currentTime = new Date();
+    const availableUsers = [];
+    for (const user of autoUsers) {
+      const isAbsent = await DatabaseService.isUserAbsent(user.id, currentTime);
+      if (!isAbsent) {
+        availableUsers.push(user);
+      }
+    }
+
+    // 5. 并发处理所有用户的签到
     const signinResults = await Promise.allSettled(
-      autoUsers.map((user) =>
+      availableUsers.map((user) =>
         this.signinUser(user, parsedResult, scanHistory.id),
       ),
     );
 
-    // 5. 返回结果
+    // 6. 返回结果
     return {
       scan_result: scanHistory,
       signin_results: signinResults
@@ -159,6 +169,20 @@ export class SigninService {
       throw new Error("没有开启自动签到的用户");
     }
 
+    // 2.5 过滤掉请假的用户
+    const currentTime = new Date();
+    const availableUsers = [];
+    for (const user of autoUsers) {
+      const isAbsent = await DatabaseService.isUserAbsent(user.id, currentTime);
+      if (!isAbsent) {
+        availableUsers.push(user);
+      }
+    }
+
+    if (availableUsers.length === 0) {
+      throw new Error("所有用户都已请假");
+    }
+
     // 3. 获取请求用户的最新 cookie
     const latestCookie = await DatabaseService.getLatestCookie(userId);
     if (!latestCookie) {
@@ -187,7 +211,7 @@ export class SigninService {
       // 如果提供了具体的数字，直接使用
       if (data) {
         const results = await this.digitalSigninWithCode(
-          autoUsers,
+          availableUsers,
           rollcallId,
           data,
         );
@@ -197,7 +221,7 @@ export class SigninService {
         try {
           this.isBruteForcing = true;
           const results = await this.bruteForceDigitalSignin(
-            autoUsers,
+            availableUsers,
             rollcallId,
             userId,
           );

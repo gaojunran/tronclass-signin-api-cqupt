@@ -1,14 +1,8 @@
 /** biome-ignore-all lint/complexity/noStaticOnlyClass: <explanation> */
 import { db } from "../db/index.ts";
-import {
-  users,
-  cookies,
-  scanHistory,
-  signinHistory,
-  log,
-} from "../db/schema.ts";
+import { users, cookies, scanHistory, signinHistory, log, absence } from "../db/schema.ts";
 import type { UserWithCookie } from "../types/index.ts";
-import { eq, desc, sql } from "drizzle-orm";
+import { eq, desc, sql, and, gte, lte } from "drizzle-orm";
 
 // 数据库操作函数
 export class DatabaseService {
@@ -252,5 +246,70 @@ export class DatabaseService {
     );
 
     return usersWithCookies;
+  }
+
+  // 添加请假记录
+  static async addAbsence(
+    userId: string,
+    classBeginAt: Date,
+    plus: number = 100,
+    minus: number = 15
+  ) {
+    const [absenceRecord] = await db.insert(absence).values({
+      id: crypto.randomUUID(),
+      user_id: userId,
+      class_begin_at: classBeginAt,
+      plus,
+      minus,
+    }).returning();
+    return absenceRecord;
+  }
+
+  // 检查用户在指定时间是否请假
+  static async isUserAbsent(userId: string, currentTime: Date) {
+    const [absenceRecord] = await db.select()
+      .from(absence)
+      .where(
+        and(
+          eq(absence.user_id, userId),
+          lte(
+            sql`${absence.class_begin_at} - (${absence.minus} * interval '1 minute')`,
+            currentTime
+          ),
+          gte(
+            sql`${absence.class_begin_at} + (${absence.plus} * interval '1 minute')`,
+            currentTime
+          )
+        )
+      )
+      .limit(1);
+    return !!absenceRecord;
+  }
+
+  // 获取用户最新的请假记录
+  static async getLatestAbsence(userId: string) {
+    const [absenceRecord] = await db.select()
+      .from(absence)
+      .where(eq(absence.user_id, userId))
+      .orderBy(desc(absence.created_at))
+      .limit(1);
+    return absenceRecord;
+  }
+
+  // 删除请假记录
+  static async removeAbsence(id: string) {
+    const [absenceRecord] = await db.delete(absence)
+      .where(eq(absence.id, id))
+      .returning();
+    return absenceRecord;
+  }
+
+  // 通过 QQ 账号查找用户
+  static async getUserByQQAccount(qqAccount: string) {
+    const [user] = await db.select()
+      .from(users)
+      .where(eq(users.qq_account, qqAccount))
+      .limit(1);
+    return user;
   }
 }

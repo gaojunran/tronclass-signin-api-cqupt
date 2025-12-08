@@ -104,4 +104,37 @@ export class UserService {
       return false;
     }
   }
+
+  /**
+   * 通过 QQ 账号查找用户
+   */
+  static async getUserByQQAccount(qqAccount: string) {
+    return await DatabaseService.getUserByQQAccount(qqAccount);
+  }
+
+  /**
+   * 添加请假记录
+   */
+  static async addAbsence(
+    userId: string,
+    classBeginAt: Date,
+    plus: number = 100,
+    minus: number = 15
+  ) {
+    return await DatabaseService.addAbsence(userId, classBeginAt, plus, minus);
+  }
+
+  /**
+   * 获取用户最新的请假记录
+   */
+  static async getLatestAbsence(userId: string) {
+    return await DatabaseService.getLatestAbsence(userId);
+  }
+
+  /**
+   * 删除请假记录
+   */
+  static async removeAbsence(id: string) {
+    return await DatabaseService.removeAbsence(id);
+  }
 }

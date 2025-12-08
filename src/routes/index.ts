@@ -363,6 +363,120 @@ app.get("/todos", async (c) => {
   }
 });
 
+/**
+ * /absence/add/qqbot：QQ机器人添加请假记录
+ */
+app.post("/absence/add/qqbot", async (c) => {
+  try {
+    const body = c.get("body") as {
+      user_qq_account: string;
+      date_format: string;
+      class_seq_number: number;
+      plus?: number;
+      minus?: number;
+    };
+    
+    const { user_qq_account, date_format, class_seq_number, plus, minus } = body;
+    
+    if (!user_qq_account || !date_format || !class_seq_number) {
+      return c.json({ error: "缺少必要参数" }, 400);
+    }
+    
+    // 验证 class_seq_number
+    const validSeqNumbers = [1, 3, 5, 7, 9];
+    if (!validSeqNumbers.includes(class_seq_number)) {
+      return c.json({ error: "课程序号必须是 1, 3, 5, 7, 9 之一" }, 400);
+    }
+    
+    // 通过 QQ 账号查找用户
+    const user = await UserService.getUserByQQAccount(user_qq_account);
+    if (!user) {
+      return c.json({ error: "未找到该 QQ 账号对应的用户" }, 404);
+    }
+    
+    // 解析课程序号到时间
+    const timeMap: Record<number, string> = {
+      1: "08:00:00",
+      3: "10:15:00",
+      5: "14:00:00",
+      7: "16:15:00",
+      9: "19:00:00",
+    };
+    
+    const timeStr = timeMap[class_seq_number];
+    
+    // 组合日期和时间（东八区）
+    const classBeginAt = new Date(`${date_format}T${timeStr}+08:00`);
+    
+    // 添加请假记录
+    const absenceRecord = await UserService.addAbsence(
+      user.id,
+      classBeginAt,
+      plus || 100,
+      minus || 15
+    );
+    
+    // 返回人类可读的响应
+    const seqNumberText = `第 ${class_seq_number} 节`;
+    
+    return c.json({
+      success: true,
+      message: `已为用户 ${user.name} 添加 ${date_format} ${seqNumberText}课程的请假记录`,
+      data: {
+        id: absenceRecord.id,
+        user_name: user.name,
+        class_time: classBeginAt.toISOString(),
+        class_seq_number: seqNumberText,
+        plus: absenceRecord.plus,
+        minus: absenceRecord.minus,
+      }
+    });
+  } catch (error) {
+    console.error("添加请假记录失败:", error);
+    return c.json({ error: error.message || "添加请假记录失败" }, 500);
+  }
+});
+
+/**
+ * /absence/pop/qqbot/<user_qq_account>：撤回最新的请假记录
+ */
+app.post("/absence/pop/qqbot/:user_qq_account", async (c) => {
+  try {
+    const user_qq_account = c.req.param("user_qq_account");
+    
+    if (!user_qq_account) {
+      return c.json({ error: "用户 QQ 账号不能为空" }, 400);
+    }
+    
+    // 通过 QQ 账号查找用户
+    const user = await UserService.getUserByQQAccount(user_qq_account);
+    if (!user) {
+      return c.json({ error: "未找到该 QQ 账号对应的用户" }, 404);
+    }
+    
+    // 获取最新的请假记录
+    const latestAbsence = await UserService.getLatestAbsence(user.id);
+    if (!latestAbsence) {
+      return c.json({ error: "该用户没有请假记录" }, 404);
+    }
+    
+    // 删除请假记录
+    await UserService.removeAbsence(latestAbsence.id);
+    
+    return c.json({
+      success: true,
+      message: `已撤回用户 ${user.name} 的最新请假记录`,
+      data: {
+        id: latestAbsence.id,
+        class_time: latestAbsence.class_begin_at,
+      }
+    });
+  } catch (error) {
+    console.error("撤回请假记录失败:", error);
+    return c.json({ error: error.message || "撤回请假记录失败" }, 500);
+  }
+});
+
 // 健康检查接口
 app.get("/health", (c) => {
   return c.json({ status: "ok", timestamp: new Date().toISOString() });

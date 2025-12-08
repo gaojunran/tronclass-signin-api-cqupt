@@ -70,3 +70,13 @@ export const log = pgTable("log", {
     .notNull()
     .defaultNow(),
 });
+
+// Absence table
+export const absence = pgTable("absence", {
+  id: text("id").primaryKey(),
+  class_begin_at: timestamp("class_begin_at", { precision: 3, mode: 'date' }).notNull(),
+  plus: integer("plus").notNull().default(100),
+  minus: integer("minus").notNull().default(15),
+  user_id: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  created_at: timestamp("created_at", { precision: 3, mode: 'date' }).notNull().defaultNow(),
+});
