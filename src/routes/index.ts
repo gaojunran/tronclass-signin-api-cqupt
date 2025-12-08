@@ -426,7 +426,7 @@ app.post("/absence/add/qqbot", async (c) => {
         id: absenceRecord.id,
         user_name: user.name,
         class_time: classBeginAt.toISOString(),
-        class_seq_number: seqNumberText,
+        class_seq_number,
         plus: absenceRecord.plus,
         minus: absenceRecord.minus,
       }
