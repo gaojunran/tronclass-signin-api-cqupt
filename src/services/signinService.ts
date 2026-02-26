@@ -129,6 +129,16 @@ export class SigninService {
     }
   }
 
+  private static dispatchSigninNotification(
+    title: string,
+    users: AutoSigninUser[],
+    records: SigninRecord[],
+  ) {
+    void this.sendSigninNotification(title, users, records).catch((error) => {
+      console.error("异步发送群通知失败:", error);
+    });
+  }
+
   /**
    * 处理扫码签到
    */
@@ -166,7 +176,7 @@ export class SigninService {
       .map((result) => (result.status === "fulfilled" ? result.value : null))
       .filter(isDefined);
 
-    await this.sendSigninNotification(
+    this.dispatchSigninNotification(
       "二维码签到任务完成",
       availableUsers,
       normalizedResults,
@@ -355,7 +365,7 @@ export class SigninService {
       }
     }
 
-    await this.sendSigninNotification(
+    this.dispatchSigninNotification(
       "数字签到任务完成",
       availableUsers,
       allResults,
