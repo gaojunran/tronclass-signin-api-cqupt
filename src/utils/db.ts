@@ -222,6 +222,7 @@ export class DatabaseService {
       .select({
         id: users.id,
         name: users.name,
+        qq_account: users.qq_account,
         is_auto: users.is_auto,
         created_at: users.created_at,
       })

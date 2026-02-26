@@ -33,5 +33,6 @@ jobs:
           max_attempts: 3
           retry_wait_seconds: 30
           command: |
+            GITHUB_ACTION_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
             PUPPETEER_EXECUTABLE_PATH="${{ steps.setup-chrome.outputs.chrome-path }}" \
             deno run -A scripts/identity-refresh-cookies.ts

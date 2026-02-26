@@ -34,6 +34,41 @@ interface RefreshResult {
 }
 
 // ---------------------------------------------------------------------------
+// Utility helpers
+// ---------------------------------------------------------------------------
+
+const toDisplayString = (value: unknown): string => {
+  if (typeof value === "string") {
+    return value;
+  }
+
+  if (value instanceof Error) {
+    return value.stack ?? value.message;
+  }
+
+  return Deno.inspect(value, {
+    depth: 6,
+    colors: false,
+    compact: true,
+    iterableLimit: 100,
+  });
+};
+
+const formatLogMessage = (message: unknown): string => {
+  if (Array.isArray(message)) {
+    return message.map(toDisplayString).join(" ");
+  }
+
+  return toDisplayString(message);
+};
+
+const getOptionalConfig = (key: string) =>
+  Config.string(key).pipe(
+    Config.option,
+    Effect.map((value) => (Option.isSome(value) ? value.value : undefined)),
+  );
+
+// ---------------------------------------------------------------------------
 // Errors
 // ---------------------------------------------------------------------------
 
@@ -136,9 +171,7 @@ const updateUserCookie = Effect.fn("updateUserCookie")(function* (
 // ---------------------------------------------------------------------------
 
 const acquireBrowser = Effect.fn("acquireBrowser")(function* () {
-  const chromePath = yield* Config.string("PUPPETEER_EXECUTABLE_PATH").pipe(
-    Config.option,
-  );
+  const chromePath = yield* getOptionalConfig("PUPPETEER_EXECUTABLE_PATH");
 
   const launchOptions: puppeteer.LaunchOptions = {
     headless: true,
@@ -153,11 +186,11 @@ const acquireBrowser = Effect.fn("acquireBrowser")(function* () {
     ],
   };
 
-  if (Option.isSome(chromePath)) {
+  if (chromePath) {
     yield* Effect.log("Using Chrome from environment", {
-      path: chromePath.value,
+      path: chromePath,
     });
-    launchOptions.executablePath = chromePath.value;
+    launchOptions.executablePath = chromePath;
   }
 
   const browser = yield* Effect.tryPromise({
@@ -173,18 +206,21 @@ const refreshCookieForUser = Effect.fn("refreshCookieForUser")(function* (
   user: User,
   browser: puppeteer.Browser,
 ) {
+  const loginTry = <A>(action: string, run: () => Promise<A>) =>
+    Effect.tryPromise({
+      try: run,
+      catch: (e) =>
+        new LoginError({
+          userName: user.name,
+          message: `${action}: ${String(e)}`,
+        }),
+    });
+
   yield* Effect.log("Starting cookie refresh", { user: user.name });
 
   const result = yield* Effect.gen(function* () {
     const page = yield* Effect.acquireRelease(
-      Effect.tryPromise({
-        try: () => browser.newPage(),
-        catch: (e) =>
-          new LoginError({
-            userName: user.name,
-            message: `Failed to open page: ${String(e)}`,
-          }),
-      }),
+      loginTry("Failed to open page", () => browser.newPage()),
       (page) =>
         Effect.gen(function* () {
           yield* Effect.log("Clearing browser cookies", { user: user.name });
@@ -200,111 +236,55 @@ const refreshCookieForUser = Effect.fn("refreshCookieForUser")(function* (
         }),
     );
 
-    yield* Effect.tryPromise({
-      try: () => page.setViewport({ width: 1280, height: 800 }),
-      catch: (e) =>
-        new LoginError({ userName: user.name, message: String(e) }),
-    });
+    yield* loginTry("Failed to set viewport", () =>
+      page.setViewport({ width: 1280, height: 800 })
+    );
 
     yield* Effect.log("Navigating to login page", { user: user.name });
 
-    yield* Effect.tryPromise({
-      try: () =>
-        page.goto(LOGIN_URL, { waitUntil: "networkidle2", timeout: 30000 }),
-      catch: (e) =>
-        new LoginError({
-          userName: user.name,
-          message: `Navigation failed: ${String(e)}`,
-        }),
-    });
+    yield* loginTry("Navigation failed", () =>
+      page.goto(LOGIN_URL, { waitUntil: "networkidle2", timeout: 30000 })
+    );
 
-    yield* Effect.tryPromise({
-      try: () => page.waitForSelector("#username", { timeout: 30000 }),
-      catch: (e) =>
-        new LoginError({
-          userName: user.name,
-          message: `Login page not loaded: ${String(e)}`,
-        }),
-    });
+    yield* loginTry("Login page not loaded", () =>
+      page.waitForSelector("#username", { timeout: 30000 })
+    );
 
     yield* Effect.log("Filling credentials", { user: user.name });
 
-    yield* Effect.tryPromise({
-      try: () =>
-        page.type("#username", user.identity_account!, { delay: 50 }),
-      catch: (e) =>
-        new LoginError({
-          userName: user.name,
-          message: `Failed to type username: ${String(e)}`,
-        }),
-    });
+    yield* loginTry("Failed to type username", () =>
+      page.type("#username", user.identity_account!, { delay: 50 })
+    );
 
-    yield* Effect.tryPromise({
-      try: () =>
-        page.type("#password", user.identity_password!, { delay: 50 }),
-      catch: (e) =>
-        new LoginError({
-          userName: user.name,
-          message: `Failed to type password: ${String(e)}`,
-        }),
-    });
+    yield* loginTry("Failed to type password", () =>
+      page.type("#password", user.identity_password!, { delay: 50 })
+    );
 
-    yield* Effect.tryPromise({
-      try: () => page.click("#rememberMe"),
-      catch: (e) =>
-        new LoginError({
-          userName: user.name,
-          message: `Failed to click remember me: ${String(e)}`,
-        }),
-    });
+    yield* loginTry("Failed to click remember me", () => page.click("#rememberMe"));
 
     yield* Effect.log("Submitting login form", { user: user.name });
 
-    yield* Effect.tryPromise({
-      try: () => page.click("#login_submit"),
-      catch: (e) =>
-        new LoginError({
-          userName: user.name,
-          message: `Failed to click submit: ${String(e)}`,
-        }),
-    });
+    yield* loginTry("Failed to click submit", () => page.click("#login_submit"));
 
-    yield* Effect.tryPromise({
-      try: () =>
-        page.waitForNavigation({ waitUntil: "networkidle2", timeout: 30000 }),
-      catch: (e) =>
-        new LoginError({
-          userName: user.name,
-          message: `Post-login navigation failed: ${String(e)}`,
-        }),
-    });
+    yield* loginTry("Post-login navigation failed", () =>
+      page.waitForNavigation({ waitUntil: "networkidle2", timeout: 30000 })
+    );
 
-    yield* Effect.tryPromise({
-      try: () =>
-        page.waitForFunction(
-          (targetUrl: string) => window.location.href.startsWith(targetUrl),
-          { timeout: 30000 },
-          TARGET_URL,
-        ),
-      catch: (e) =>
-        new LoginError({
-          userName: user.name,
-          message: `Target page not reached: ${String(e)}`,
-        }),
-    });
+    yield* loginTry("Target page not reached", () =>
+      page.waitForFunction(
+        (targetUrl: string) => window.location.href.startsWith(targetUrl),
+        { timeout: 30000 },
+        TARGET_URL,
+      )
+    );
 
     yield* Effect.sleep("2 seconds");
 
     yield* Effect.log("Extracting cookies", { user: user.name });
 
-    const cookieString = yield* Effect.tryPromise({
-      try: () => page.evaluate("document.cookie") as Promise<string>,
-      catch: (e) =>
-        new LoginError({
-          userName: user.name,
-          message: `Failed to extract cookies: ${String(e)}`,
-        }),
-    });
+    const cookieString = yield* loginTry("Failed to extract cookies", () =>
+      page.evaluate("document.cookie") as Promise<string>
+    );
 
     if (!cookieString) {
       return yield* Effect.fail(
@@ -316,8 +296,8 @@ const refreshCookieForUser = Effect.fn("refreshCookieForUser")(function* (
     }
 
     yield* updateUserCookie(user.id, cookieString).pipe(
-      Effect.mapError(
-        (e) => new LoginError({ userName: user.name, message: e.message }),
+      Effect.catchTag("UpdateCookieError", (e) =>
+        Effect.fail(new LoginError({ userName: user.name, message: e.message }))
       ),
     );
 
@@ -360,7 +340,7 @@ const refreshCookieForUser = Effect.fn("refreshCookieForUser")(function* (
 const sendGroupNotification = Effect.fn("sendGroupNotification")(function* (
   results: RefreshResult[],
   errorMessage?: string,
-  logLines?: string[],
+  actionUrl?: string,
 ) {
   const successCount = results.filter((r) => r.success).length;
   const failureCount = results.filter((r) => !r.success).length;
@@ -393,10 +373,10 @@ const sendGroupNotification = Effect.fn("sendGroupNotification")(function* (
     lines.push(`  ${errorMessage}`);
   }
 
-  if (logLines && logLines.length > 0) {
+  if (actionUrl) {
     lines.push("");
-    lines.push("执行日志:");
-    lines.push(logLines.join("\n"));
+    lines.push("GitHub Action:");
+    lines.push(`  ${actionUrl}`);
   }
 
   const payload = {
@@ -432,8 +412,9 @@ const sendGroupNotification = Effect.fn("sendGroupNotification")(function* (
 // Main program
 // ---------------------------------------------------------------------------
 
-const program = Effect.fn("program")(function* (logLines: string[]) {
+const program = Effect.fn("program")(function* () {
   yield* Effect.log("Cookie refresh task started");
+  const actionUrl = yield* getOptionalConfig("GITHUB_ACTION_URL");
 
   const users = yield* fetchUsers();
   yield* Effect.log("Fetched users", { total: users.length });
@@ -477,16 +458,16 @@ const program = Effect.fn("program")(function* (logLines: string[]) {
   });
 
   const failureCount = results.filter((r) => !r.success).length;
-  const notifyLogs = failureCount > 0 ? logLines : undefined;
+  const notifyActionUrl = failureCount > 0 ? actionUrl : undefined;
 
-  yield* sendGroupNotification(results, undefined, notifyLogs).pipe(
+  yield* sendGroupNotification(results, undefined, notifyActionUrl).pipe(
     Effect.catchTag("NotifyError", (e) =>
       Effect.log("Failed to send group notification", { error: e.message }),
     ),
   );
 
   if (failureCount > 0) {
-    // Notification was already sent above with logs; just signal a non-zero exit
+    // Notification was already sent above; just signal a non-zero exit
     Deno.exit(1);
   }
 
@@ -498,32 +479,34 @@ const program = Effect.fn("program")(function* (logLines: string[]) {
 // ---------------------------------------------------------------------------
 
 if (import.meta.main) {
-  const logLines: string[] = [];
-
   const collectingLogger = Logger.make(({ message, logLevel, date }) => {
     const ts = date.toISOString();
-    const msg = Array.isArray(message) ? message.join(" ") : String(message);
+    const msg = formatLogMessage(message);
     const line = `${ts} [${logLevel.label}] ${msg}`;
-    logLines.push(line);
     console.log(line);
   });
 
   Effect.runPromise(
-    program(logLines).pipe(
+    program().pipe(
       Effect.provide(Logger.replace(Logger.defaultLogger, collectingLogger)),
     ),
   ).catch(async (error) => {
     const message = error instanceof Error ? error.message : String(error);
 
     // Fatal error (e.g. API unreachable, browser failed to launch) —
-    // forward to group with full logs since no per-user notification was sent
+    // forward to group message when no per-user notification was sent
     await Effect.runPromise(
-      sendGroupNotification([], message, logLines).pipe(
-        Effect.catchTag("NotifyError", (e) =>
-          Effect.log("Could not send failure notification", {
-            error: e.message,
-          }),
-        ),
+      Effect.gen(function* () {
+        const actionUrl = yield* getOptionalConfig("GITHUB_ACTION_URL");
+        yield* sendGroupNotification([], message, actionUrl).pipe(
+          Effect.catchTag("NotifyError", (e) =>
+            Effect.log("Could not send failure notification", {
+              error: e.message,
+            })
+          ),
+        );
+      }).pipe(
+        Effect.provide(Logger.replace(Logger.defaultLogger, collectingLogger)),
       ),
     );
 

@@ -2,6 +2,32 @@
 import { DatabaseService } from "../utils/db.ts";
 import { parseSignQrCode } from "../utils/parse.ts";
 
+const GROUP_NOTIFY_URL = "https://air.codenebula.deno.net/qq/group/send/";
+const GROUP_ID = "322989480";
+
+interface AutoSigninUser {
+  id: string;
+  name: string;
+  qq_account?: string | null;
+  cookies?: Array<{ value?: string | null }>;
+}
+
+interface SigninRecord {
+  user_id: string;
+  response_code: number | null;
+  response_data: Record<string, unknown> | null;
+}
+
+const isDefined = <T>(value: T | null | undefined): value is T =>
+  value !== null && value !== undefined;
+
+const getErrorMessage = (error: unknown): string => {
+  if (error instanceof Error) {
+    return error.message;
+  }
+  return String(error);
+};
+
 // 生成随机UUID
 function generateUUID(): string {
   return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
@@ -14,6 +40,94 @@ function generateUUID(): string {
 export class SigninService {
   // 破解锁：防止多个请求同时进行破解
   private static isBruteForcing = false;
+
+  private static isSigninSuccess(record: SigninRecord): boolean {
+    return (
+      typeof record.response_code === "number" &&
+      record.response_code >= 200 &&
+      record.response_code < 300
+    );
+  }
+
+  private static extractFailureReason(record: SigninRecord): string {
+    const data = record.response_data;
+    if (data && typeof data === "object") {
+      const maybeError =
+        data.error ?? data.message ?? data.msg ?? data.detail ?? data.reason;
+      if (typeof maybeError === "string" && maybeError.trim().length > 0) {
+        return maybeError;
+      }
+    }
+
+    if (record.response_code) {
+      return `HTTP ${record.response_code}`;
+    }
+
+    return "未知错误";
+  }
+
+  private static async sendSigninNotification(
+    title: string,
+    users: AutoSigninUser[],
+    records: SigninRecord[],
+  ) {
+    const userById = new Map(users.map((u) => [u.id, u]));
+    const ats = Array.from(
+      new Set(
+        users
+          .map((u) => u.qq_account?.trim())
+          .filter((qq): qq is string => Boolean(qq)),
+      ),
+    );
+
+    const successLines: string[] = [];
+    const failureLines: string[] = [];
+
+    for (const record of records) {
+      const user = userById.get(record.user_id);
+      const userName = user?.name ?? record.user_id;
+      if (this.isSigninSuccess(record)) {
+        successLines.push(`  - ${userName}`);
+      } else {
+        failureLines.push(
+          `  - ${userName}: ${this.extractFailureReason(record)}`,
+        );
+      }
+    }
+
+    const lines = [
+      title,
+      "",
+      `总计: ${records.length} | 成功: ${successLines.length} | 失败: ${failureLines.length}`,
+    ];
+
+    if (successLines.length > 0) {
+      lines.push("", "签到成功:", ...successLines);
+    }
+
+    if (failureLines.length > 0) {
+      lines.push("", "签到失败:", ...failureLines);
+    }
+
+    try {
+      const response = await fetch(GROUP_NOTIFY_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          groupId: GROUP_ID,
+          ats,
+          text: lines.join("\n"),
+        }),
+      });
+
+      if (!response.ok) {
+        const errorBody = await response.text().catch(() => "");
+        console.error("发送群通知失败:", response.status, errorBody);
+      }
+    } catch (error) {
+      console.error("发送群通知异常:", error);
+    }
+  }
 
   /**
    * 处理扫码签到
@@ -48,12 +162,20 @@ export class SigninService {
       ),
     );
 
+    const normalizedResults = signinResults
+      .map((result) => (result.status === "fulfilled" ? result.value : null))
+      .filter(isDefined);
+
+    await this.sendSigninNotification(
+      "二维码签到任务完成",
+      availableUsers,
+      normalizedResults,
+    );
+
     // 6. 返回结果
     return {
       scan_result: scanHistory,
-      signin_results: signinResults
-        .map((result) => (result.status === "fulfilled" ? result.value : null))
-        .filter(Boolean),
+      signin_results: normalizedResults,
     };
   }
 
@@ -116,15 +238,16 @@ export class SigninService {
       return signinHistory;
     } catch (error) {
       console.error(`用户 ${user.name} 签到失败:`, error);
+      const errorMessage = getErrorMessage(error);
 
       // 保存失败的签到记录
       const signinHistory = await DatabaseService.addSigninHistory(
         user.id,
         user.cookies?.[0]?.value || null,
         scanHistoryId,
-        { error: error.message },
+        { error: errorMessage },
         null,
-        { error: error.message },
+        { error: errorMessage },
       );
 
       return signinHistory;
@@ -232,6 +355,12 @@ export class SigninService {
       }
     }
 
+    await this.sendSigninNotification(
+      "数字签到任务完成",
+      availableUsers,
+      allResults,
+    );
+
     return {
       tasks: digitalTasks,
       signin_results: allResults,
@@ -286,7 +415,7 @@ export class SigninService {
 
     return results
       .map((result) => (result.status === "fulfilled" ? result.value : null))
-      .filter(Boolean);
+      .filter(isDefined);
   }
 
   /**
@@ -468,15 +597,16 @@ export class SigninService {
       }
     } catch (error) {
       console.error(`用户 ${user.name} 数字签到失败:`, error);
+      const errorMessage = getErrorMessage(error);
 
       // 保存失败的签到记录
       const signinHistory = await DatabaseService.addSigninHistory(
         user.id,
         user.cookies?.[0]?.value || null,
         scanHistoryId,
-        { error: error.message, numberCode },
+        { error: errorMessage, numberCode },
         null,
-        { error: error.message },
+        { error: errorMessage },
       );
 
       return signinHistory;
