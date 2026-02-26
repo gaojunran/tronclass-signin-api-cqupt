@@ -2,7 +2,7 @@
 import { DatabaseService } from "../utils/db.ts";
 import { parseSignQrCode } from "../utils/parse.ts";
 
-const GROUP_NOTIFY_URL = "https://air.codenebula.deno.net/qq/group/send/";
+const GROUP_NOTIFY_URL = "https://air.codenebula.deno.net/qq/group/send";
 const GROUP_ID = "322989480";
 
 interface AutoSigninUser {
