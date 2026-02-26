@@ -1,4 +1,4 @@
-import { Hono } from "hono";
+import { Hono, type Context } from "hono";
 import { UserService } from "../services/userService.ts";
 import { SigninService } from "../services/signinService.ts";
 import { LogService, LogAction } from "../services/logService.ts";
@@ -16,7 +16,21 @@ import type {
   UserWithCookie
 } from "../types/index.ts";
 
-const app = new Hono();
+type AppVariables = {
+  body?: unknown;
+};
+
+const getErrorMessage = (error: unknown, fallback: string): string => {
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+  return fallback;
+};
+
+const getBody = <T>(c: Context<{ Variables: AppVariables }>): T =>
+  (c.get("body") ?? {}) as T;
+
+const app = new Hono<{ Variables: AppVariables }>();
 
 // 中间件：验证请求体
 app.use("*", async (c, next) => {
@@ -49,7 +63,7 @@ app.get("/user/list", async (c) => {
  */
 app.post("/user/add", async (c) => {
   try {
-    const body = c.get("body") as AddUserRequest;
+    const body = getBody<AddUserRequest>(c);
     const { ua_info, name } = body;
     
     if (!name) {
@@ -74,7 +88,7 @@ app.post("/user/add", async (c) => {
 app.post("/user/remove/:id", async (c) => {
   try {
     const id = c.req.param("id");
-    const body = c.get("body") as RemoveUserRequest;
+    const body = getBody<RemoveUserRequest>(c);
     const { ua_info } = body;
     
     if (!id) {
@@ -105,7 +119,7 @@ app.post("/user/remove/:id", async (c) => {
 app.post("/user/rename/:id", async (c) => {
   try {
     const id = c.req.param("id");
-    const body = c.get("body") as RenameUserRequest;
+    const body = getBody<RenameUserRequest>(c);
     const { ua_info, new_name } = body;
     
     if (!id) {
@@ -140,7 +154,7 @@ app.post("/user/rename/:id", async (c) => {
 app.post("/user/refresh/:id", async (c) => {
   try {
     const id = c.req.param("id");
-    const body = c.get("body") as RefreshCookieRequest;
+    const body = getBody<RefreshCookieRequest>(c);
     const { ua_info, cookie } = body;
     
     if (!id) {
@@ -175,7 +189,7 @@ app.post("/user/refresh/:id", async (c) => {
 app.post("/user/auto/:id", async (c) => {
   try {
     const id = c.req.param("id");
-    const body = c.get("body") as SetAutoRequest;
+    const body = getBody<SetAutoRequest>(c);
     const { ua_info, is_auto } = body;
     
     if (!id) {
@@ -210,7 +224,7 @@ app.post("/user/auto/:id", async (c) => {
 app.post("/user/identity/update/:id", async (c) => {
   try {
     const id = c.req.param("id");
-    const body = c.get("body") as UpdateIdentityRequest;
+    const body = getBody<UpdateIdentityRequest>(c);
     const { ua_info, account, password } = body;
     
     if (!id) {
@@ -244,13 +258,17 @@ app.post("/user/identity/update/:id", async (c) => {
  */
 app.post("/signin", async (c) => {
   try {
-    const body = c.get("body") as SigninRequest;
+    const body = getBody<SigninRequest>(c);
     const { ua_info, scan_result, user_id } = body;
     
     if (!scan_result) {
       return c.json({ error: "扫码结果不能为空" }, 400);
     }
     
+    if (!user_id) {
+      return c.json({ error: "user_id不能为空" }, 400);
+    }
+
     const result = await SigninService.processSignin(scan_result, user_id);
     
     // 记录扫码日志（在业务逻辑之后）
@@ -272,8 +290,12 @@ app.post("/signin", async (c) => {
  */
 app.post("/signin-digital", async (c) => {
   try {
-    const body = c.get("body") as DigitalSigninRequest;
+    const body = getBody<DigitalSigninRequest>(c);
     const { ua_info, data, user_id } = body;
+
+    if (!user_id) {
+      return c.json({ error: "user_id不能为空" }, 400);
+    }
     
     const result = await SigninService.processDigitalSignin(data, user_id);
     
@@ -283,7 +305,7 @@ app.post("/signin-digital", async (c) => {
     return c.json(result);
   } catch (error) {
     console.error("数字签到失败:", error);
-    return c.json({ error: error.message || "数字签到失败" }, 500);
+    return c.json({ error: getErrorMessage(error, "数字签到失败") }, 500);
   }
 });
 
@@ -352,14 +374,14 @@ app.get("/todos", async (c) => {
       console.error(`获取todos失败: HTTP ${response.status}`);
       return c.json({ 
         error: `获取todos失败: HTTP ${response.status}，可能需要刷新Cookie`
-      }, response.status);
+      }, { status: response.status as 400 | 401 | 403 | 404 | 429 | 500 | 502 | 503 | 504 });
     }
     
     const data = await response.json();
     return c.json(data);
   } catch (error) {
     console.error("获取todos失败:", error);
-    return c.json({ error: error.message || "获取todos失败" }, 500);
+    return c.json({ error: getErrorMessage(error, "获取todos失败") }, 500);
   }
 });
 
@@ -368,13 +390,13 @@ app.get("/todos", async (c) => {
  */
 app.post("/absence/add/qqbot", async (c) => {
   try {
-    const body = c.get("body") as {
+    const body = getBody<{
       user_qq_account: string;
       date_format: string;
       class_seq_number: number;
       plus?: number;
       minus?: number;
-    };
+    }>(c);
     
     const { user_qq_account, date_format, class_seq_number, plus, minus } = body;
     
@@ -433,7 +455,7 @@ app.post("/absence/add/qqbot", async (c) => {
     });
   } catch (error) {
     console.error("添加请假记录失败:", error);
-    return c.json({ error: error.message || "添加请假记录失败" }, 500);
+    return c.json({ error: getErrorMessage(error, "添加请假记录失败") }, 500);
   }
 });
 
@@ -473,7 +495,7 @@ app.post("/absence/pop/qqbot/:user_qq_account", async (c) => {
     });
   } catch (error) {
     console.error("撤回请假记录失败:", error);
-    return c.json({ error: error.message || "撤回请假记录失败" }, 500);
+    return c.json({ error: getErrorMessage(error, "撤回请假记录失败") }, 500);
   }
 });
 

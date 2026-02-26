@@ -1,5 +1,6 @@
 /** biome-ignore-all lint/complexity/noStaticOnlyClass: <explanation> */
 import { DatabaseService } from "../utils/db.ts";
+import type { UserWithCookie } from "../types/index.ts";
 
 export class UserService {
   /**
@@ -7,7 +8,7 @@ export class UserService {
    */
   static async getAllUsers() {
     const users = await DatabaseService.getAllUsersWithCookies();
-    return users.map((user: { id: any; name: any; is_auto: any; identity_account: any; identity_password: any; qq_account: any; latest_cookie: any; expires: any; }) => ({
+    return users.map((user: UserWithCookie) => ({
       id: user.id,
       name: user.name,
       is_auto: user.is_auto,
@@ -58,8 +59,8 @@ export class UserService {
     const user = await DatabaseService.updateUserIdentity(id, account, password);
     return { 
       id: user.id, 
-      identity_account: user.identityAccount,
-      identity_password: user.identityPassword
+      identity_account: user.identity_account,
+      identity_password: user.identity_password
     };
   }
 
@@ -80,7 +81,7 @@ export class UserService {
    */
   static async getUser(id: string) {
     const user = await DatabaseService.getAllUsersWithCookies();
-    const foundUser = user.find((u: { id: string; }) => u.id === id);
+    const foundUser = user.find((u) => u.id === id);
     if (!foundUser) {
       throw new Error('用户不存在');
     }
