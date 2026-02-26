@@ -142,18 +142,36 @@ export class SigninService {
   /**
    * 处理扫码签到
    */
-  static async processSignin(scanResult: string, userId: string) {
+  static async processSignin(
+    scanResult: string,
+    userId: string,
+    notify: boolean = false,
+  ) {
+    const startedAt = Date.now();
+    console.log("[signin:qr] 开始处理二维码签到", {
+      userId,
+      notify,
+      scanResultLength: scanResult.length,
+    });
+
     // 1. 保存扫码历史
     const scanHistory = await DatabaseService.addScanHistory(
       scanResult,
       userId,
     );
+    console.log("[signin:qr] 已保存扫码历史", { scanHistoryId: scanHistory.id });
 
     // 2. 解析扫码结果
     const parsedResult = parseSignQrCode(scanResult);
+    console.log("[signin:qr] 解析扫码结果", {
+      rollcallId: parsedResult.rollcallId,
+      hasData: Boolean(parsedResult.data),
+      activityId: parsedResult.activityId,
+    });
 
     // 3. 获取需要自动签到的用户
     const autoUsers = await DatabaseService.getAutoSigninUsers();
+    console.log("[signin:qr] 获取自动签到用户", { count: autoUsers.length });
 
     // 4. 过滤掉请假的用户
     const currentTime = new Date();
@@ -164,8 +182,14 @@ export class SigninService {
         availableUsers.push(user);
       }
     }
+    console.log("[signin:qr] 请假过滤完成", {
+      total: autoUsers.length,
+      available: availableUsers.length,
+      absent: autoUsers.length - availableUsers.length,
+    });
 
     // 5. 并发处理所有用户的签到
+    console.log("[signin:qr] 开始并发签到", { userCount: availableUsers.length });
     const signinResults = await Promise.allSettled(
       availableUsers.map((user) =>
         this.signinUser(user, parsedResult, scanHistory.id),
@@ -176,11 +200,27 @@ export class SigninService {
       .map((result) => (result.status === "fulfilled" ? result.value : null))
       .filter(isDefined);
 
-    this.dispatchSigninNotification(
-      "二维码签到任务完成",
-      availableUsers,
-      normalizedResults,
-    );
+    const successCount = normalizedResults.filter((record) =>
+      this.isSigninSuccess(record)
+    ).length;
+    const failureCount = normalizedResults.length - successCount;
+    console.log("[signin:qr] 并发签到完成", {
+      total: normalizedResults.length,
+      success: successCount,
+      failure: failureCount,
+      durationMs: Date.now() - startedAt,
+    });
+
+    if (notify) {
+      console.log("[signin:qr] notify=true，异步发送群通知");
+      this.dispatchSigninNotification(
+        "二维码签到任务完成",
+        availableUsers,
+        normalizedResults,
+      );
+    } else {
+      console.log("[signin:qr] notify=false，跳过群通知");
+    }
 
     // 6. 返回结果
     return {
@@ -198,6 +238,14 @@ export class SigninService {
     scanHistoryId: string,
   ) {
     try {
+      const startedAt = Date.now();
+      console.log("[signin:qr:user] 开始签到", {
+        userId: user.id,
+        userName: user.name,
+        scanHistoryId,
+        rollcallId: parsedResult.rollcallId,
+      });
+
       const latestCookie = user.cookies?.[0]?.value;
 
       if (!latestCookie) {
@@ -245,6 +293,14 @@ export class SigninService {
         responseData,
       );
 
+      console.log("[signin:qr:user] 签到完成", {
+        userId: user.id,
+        userName: user.name,
+        status: response.status,
+        success: response.ok,
+        durationMs: Date.now() - startedAt,
+      });
+
       return signinHistory;
     } catch (error) {
       console.error(`用户 ${user.name} 签到失败:`, error);
@@ -289,7 +345,11 @@ export class SigninService {
   /**
    * 处理数字签到
    */
-  static async processDigitalSignin(data: string | undefined, userId: string) {
+  static async processDigitalSignin(
+    data: string | undefined,
+    userId: string,
+    notify: boolean = false,
+  ) {
     // 1. 如果没有提供签到码，且正在破解中，则拒绝请求
     if (!data && this.isBruteForcing) {
       throw new Error("服务器正在破解签到码，请稍后再试或提供具体的签到码");
@@ -365,11 +425,13 @@ export class SigninService {
       }
     }
 
-    this.dispatchSigninNotification(
-      "数字签到任务完成",
-      availableUsers,
-      allResults,
-    );
+    if (notify) {
+      this.dispatchSigninNotification(
+        "数字签到任务完成",
+        availableUsers,
+        allResults,
+      );
+    }
 
     return {
       tasks: digitalTasks,

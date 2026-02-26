@@ -259,7 +259,7 @@ app.post("/user/identity/update/:id", async (c) => {
 app.post("/signin", async (c) => {
   try {
     const body = getBody<SigninRequest>(c);
-    const { ua_info, scan_result, user_id } = body;
+    const { ua_info, scan_result, user_id, notify = false } = body;
     
     if (!scan_result) {
       return c.json({ error: "扫码结果不能为空" }, 400);
@@ -269,7 +269,11 @@ app.post("/signin", async (c) => {
       return c.json({ error: "user_id不能为空" }, 400);
     }
 
-    const result = await SigninService.processSignin(scan_result, user_id);
+    if (typeof notify !== "boolean") {
+      return c.json({ error: "notify必须是布尔值" }, 400);
+    }
+
+    const result = await SigninService.processSignin(scan_result, user_id, notify);
     
     // 记录扫码日志（在业务逻辑之后）
     await LogService.logScanSignin(ua_info, scan_result, user_id, result);
@@ -291,13 +295,17 @@ app.post("/signin", async (c) => {
 app.post("/signin-digital", async (c) => {
   try {
     const body = getBody<DigitalSigninRequest>(c);
-    const { ua_info, data, user_id } = body;
+    const { ua_info, data, user_id, notify = false } = body;
 
     if (!user_id) {
       return c.json({ error: "user_id不能为空" }, 400);
     }
     
-    const result = await SigninService.processDigitalSignin(data, user_id);
+    if (typeof notify !== "boolean") {
+      return c.json({ error: "notify必须是布尔值" }, 400);
+    }
+
+    const result = await SigninService.processDigitalSignin(data, user_id, notify);
     
     // 记录数字签到日志
     await LogService.logDigitalSignin(ua_info, data, user_id, result);
