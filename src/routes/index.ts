@@ -1,6 +1,7 @@
 import { Hono, type Context } from "hono";
 import { UserService } from "../services/userService.ts";
 import { SigninService } from "../services/signinService.ts";
+import { SigninStreamService } from "../services/signinStreamService.ts";
 import { LogService, LogAction } from "../services/logService.ts";
 import type {
   AddUserRequest,
@@ -505,6 +506,82 @@ app.post("/absence/pop/qqbot/:user_qq_account", async (c) => {
     console.error("撤回请假记录失败:", error);
     return c.json({ error: getErrorMessage(error, "撤回请假记录失败") }, 500);
   }
+});
+
+/**
+ * /signin/stream：扫码签到流式版本，返回 JSON Lines (text/plain)
+ */
+app.post("/signin/stream", async (c) => {
+  const body = getBody<SigninRequest>(c);
+  const { scan_result, user_id, notify = false } = body;
+
+  if (!scan_result) {
+    return c.json({ error: "扫码结果不能为空" }, 400);
+  }
+  if (!user_id) {
+    return c.json({ error: "user_id不能为空" }, 400);
+  }
+
+  const encoder = new TextEncoder();
+  const { readable, writable } = new TransformStream<Uint8Array, Uint8Array>();
+  const writer = writable.getWriter();
+
+  // Run streaming logic asynchronously, do not await
+  SigninStreamService.streamSignin(
+    scan_result,
+    user_id,
+    notify,
+    (chunk) => {
+      writer.write(encoder.encode(chunk)).catch(() => {});
+    },
+  ).finally(() => {
+    writer.close().catch(() => {});
+  });
+
+  return new Response(readable, {
+    headers: {
+      "Content-Type": "text/plain; charset=utf-8",
+      "Transfer-Encoding": "chunked",
+      "Cache-Control": "no-cache",
+      "X-Accel-Buffering": "no",
+    },
+  });
+});
+
+/**
+ * /signin-digital/stream：数字签到流式版本，返回 JSON Lines (text/plain)
+ */
+app.post("/signin-digital/stream", async (c) => {
+  const body = getBody<DigitalSigninRequest>(c);
+  const { data, user_id, notify = false } = body;
+
+  if (!user_id) {
+    return c.json({ error: "user_id不能为空" }, 400);
+  }
+
+  const encoder = new TextEncoder();
+  const { readable, writable } = new TransformStream<Uint8Array, Uint8Array>();
+  const writer = writable.getWriter();
+
+  SigninStreamService.streamDigitalSignin(
+    data,
+    user_id,
+    notify,
+    (chunk) => {
+      writer.write(encoder.encode(chunk)).catch(() => {});
+    },
+  ).finally(() => {
+    writer.close().catch(() => {});
+  });
+
+  return new Response(readable, {
+    headers: {
+      "Content-Type": "text/plain; charset=utf-8",
+      "Transfer-Encoding": "chunked",
+      "Cache-Control": "no-cache",
+      "X-Accel-Buffering": "no",
+    },
+  });
 });
 
 // 健康检查接口
