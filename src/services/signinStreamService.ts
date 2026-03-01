@@ -67,6 +67,28 @@ const getErrorMessage = (error: unknown): string => {
   return String(error);
 };
 
+/**
+ * Build standard request headers matching the real TronClass mobile client.
+ * `cookieString` is the full document.cookie value stored in the DB.
+ * The SESSION token is extracted and sent as X-SESSION-ID per the real app protocol.
+ */
+function buildHeaders(cookieString: string): Record<string, string> {
+  const sessionMatch = cookieString.match(/(?:^|;\s*)SESSION=([^;]+)/);
+  const sessionId = sessionMatch?.[1];
+  return {
+    "User-Agent":
+      "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 wxwork/5.0.6 MicroMessenger/7.0.1 Language/zh ColorScheme/Dark wwmver/3.26.506.378",
+    "Accept": "application/json, text/plain, */*",
+    "Accept-Language": "zh-Hans",
+    "Content-Type": "application/json",
+    "X-Requested-With": "XMLHttpRequest",
+    "Origin": "http://mobile.tc.cqupt.edu.cn",
+    "Referer": "http://mobile.tc.cqupt.edu.cn/",
+    "Cookie": cookieString,
+    ...(sessionId ? { "X-SESSION-ID": sessionId } : {}),
+  };
+}
+
 // ──────────────────────────────────────────────
 // QR signin streaming
 // ──────────────────────────────────────────────
@@ -301,14 +323,8 @@ export class SigninStreamService {
 
     const response = await fetch(signUrl, {
       method: "PUT",
-      headers: {
-        "User-Agent":
-          "Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Mobile Safari/537.36 Edg/141.0.0.0",
-        "Content-Type": "application/json",
-        Cookie: latestCookie,
-      },
+      headers: buildHeaders(latestCookie),
       body: JSON.stringify(requestData),
-      credentials: "include",
     });
 
     const responseData = await response.json();
@@ -517,12 +533,7 @@ export class SigninStreamService {
       "http://lms.tc.cqupt.edu.cn/api/radar/rollcalls?api_version=1.1.0";
     const response = await fetch(radarUrl, {
       method: "GET",
-      headers: {
-        "User-Agent":
-          "Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Mobile Safari/537.36 Edg/141.0.0.0",
-        Cookie: cookie,
-      },
-      credentials: "include",
+      headers: buildHeaders(cookie),
     });
     if (!response.ok) throw new Error(`获取签到任务失败: ${response.status}`);
     const resData = await response.json();
@@ -665,14 +676,8 @@ export class SigninStreamService {
 
       const response = await fetch(signUrl, {
         method: "PUT",
-        headers: {
-          "User-Agent":
-            "Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Mobile Safari/537.36 Edg/141.0.0.0",
-          "Content-Type": "application/json",
-          Cookie: latestCookie,
-        },
+        headers: buildHeaders(latestCookie),
         body: JSON.stringify(requestData),
-        credentials: "include",
       });
       return { success: response.ok, code: numberCode };
     } catch {
@@ -694,14 +699,8 @@ export class SigninStreamService {
 
     const response = await fetch(signUrl, {
       method: "PUT",
-      headers: {
-        "User-Agent":
-          "Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Mobile Safari/537.36 Edg/141.0.0.0",
-        "Content-Type": "application/json",
-        Cookie: latestCookie,
-      },
+      headers: buildHeaders(latestCookie),
       body: JSON.stringify(requestData),
-      credentials: "include",
     });
     const responseData = await response.json();
     return await DatabaseService.addSigninHistory(
