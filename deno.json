@@ -8,7 +8,7 @@
     "@hono/hono/cors": "jsr:@hono/hono@^4.10.5/cors"
   },
   "tasks": {
-    "start": "deno run -A main.ts",
+    "start": "deno run -A --unstable-net main.ts",
     "db:push": "deno run -A npm:drizzle-kit push",
     "db:migrate": "deno run -A npm:drizzle-kit migrate",
     "db:studio": "deno run -A npm:drizzle-kit studio"

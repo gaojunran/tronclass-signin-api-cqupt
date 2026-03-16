@@ -3,6 +3,7 @@ import { UserService } from "../services/userService.ts";
 import { SigninService } from "../services/signinService.ts";
 import { SigninStreamService } from "../services/signinStreamService.ts";
 import { LogService, LogAction } from "../services/logService.ts";
+import { WxService } from "../services/wxService.ts";
 import type {
   AddUserRequest,
   RemoveUserRequest,
@@ -582,6 +583,26 @@ app.post("/signin-digital/stream", async (c) => {
       "X-Accel-Buffering": "no",
     },
   });
+});
+
+/**
+ * /wx/jssdk-config：获取微信 JS-SDK 配置签名
+ * GET /wx/jssdk-config?url=<url>
+ */
+app.get("/wx/jssdk-config", async (c) => {
+  try {
+    const url = c.req.query("url");
+
+    if (!url) {
+      return c.json({ error: "url参数不能为空" }, 400);
+    }
+
+    const config = await WxService.getJsSdkConfig(url);
+    return c.json(config);
+  } catch (error) {
+    console.error("获取JS-SDK配置失败:", error);
+    return c.json({ error: getErrorMessage(error, "获取JS-SDK配置失败") }, 500);
+  }
 });
 
 // 健康检查接口

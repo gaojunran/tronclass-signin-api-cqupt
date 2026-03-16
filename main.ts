@@ -32,6 +32,7 @@ app.get('/', (c) => {
       '/todos': 'GET - 获取用户待办事项',
       '/history/signin': 'GET - 获取签到历史',
       '/history/scan': 'GET - 获取扫码历史',
+      '/wx/jssdk-config': 'GET - 获取微信JS-SDK配置签名',
       '/health': 'GET - 健康检查'
     }
   })
