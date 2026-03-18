@@ -17,6 +17,7 @@ export type SigninPhase =
   | "save_scan"
   | "parse_qr"
   | "fetch_users"
+  | "filter_time_window"
   | "filter_absence"
   | "signing"
   | "fetch_rollcalls"
@@ -48,6 +49,38 @@ export interface StreamEvent {
 // Helper to create a JSON line
 function jsonLine(event: StreamEvent): string {
   return JSON.stringify({ ...event, ts: Date.now() }) + "\n";
+}
+
+/**
+ * Check if the current time (Asia/Shanghai) falls within restricted time windows:
+ * - Monday  07:30 – 09:40
+ * - Wednesday 15:45 – 18:00
+ * During these windows only the scanner and "高浚然" should be signed in.
+ */
+function isInRestrictedTimeWindow(date: Date): { restricted: boolean; label?: string } {
+  // Convert to Asia/Shanghai local time components
+  const formatter = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Asia/Shanghai",
+    weekday: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+  const parts = formatter.formatToParts(date);
+  const weekday = parts.find((p) => p.type === "weekday")?.value; // Mon, Tue, Wed...
+  const hour = Number(parts.find((p) => p.type === "hour")?.value);
+  const minute = Number(parts.find((p) => p.type === "minute")?.value);
+  const totalMinutes = hour * 60 + minute;
+
+  // Monday 07:30 – 09:40
+  if (weekday === "Mon" && totalMinutes >= 7 * 60 + 30 && totalMinutes <= 9 * 60 + 40) {
+    return { restricted: true, label: "周一 7:30-9:40" };
+  }
+  // Wednesday 15:45 – 18:00
+  if (weekday === "Wed" && totalMinutes >= 15 * 60 + 45 && totalMinutes <= 18 * 60) {
+    return { restricted: true, label: "周三 15:45-18:00" };
+  }
+  return { restricted: false };
 }
 
 // Generate random UUID
@@ -167,42 +200,77 @@ export class SigninStreamService {
         }),
       );
 
-      // 4. Filter absent users
-      emit(
-        jsonLine({
-          type: "progress",
-          phase: "filter_absence",
-          message: "正在检查请假状态...",
-        }),
-      );
+      // 4. Check restricted time window
       const currentTime = new Date();
-      const availableUsers: any[] = [];
-      const absentUsers: any[] = [];
-      for (const user of autoUsers) {
-        const isAbsent = await DatabaseService.isUserAbsent(
-          user.id,
-          currentTime,
-        );
-        if (isAbsent) {
-          absentUsers.push(user);
-        } else {
-          availableUsers.push(user);
-        }
-      }
-      emit(
-        jsonLine({
-          type: "progress",
-          phase: "filter_absence",
-          message: `请假过滤完成：${availableUsers.length} 人可签到，${absentUsers.length} 人请假`,
-          detail:
-            absentUsers.length > 0
-              ? `请假：${absentUsers.map((u: any) => u.name).join("、")}`
-              : undefined,
-        }),
-      );
+      const timeWindowCheck = isInRestrictedTimeWindow(currentTime);
+      let availableUsers: any[] = [];
 
-      if (availableUsers.length === 0) {
-        throw new Error("所有用户均已请假，无需签到");
+      if (timeWindowCheck.restricted) {
+        // During restricted windows: only sign in the scanner and 高浚然
+        emit(
+          jsonLine({
+            type: "progress",
+            phase: "filter_time_window",
+            message: `当前处于限制时段（${timeWindowCheck.label}），仅为扫码者和高浚然签到`,
+          }),
+        );
+        availableUsers = autoUsers.filter(
+          (u: any) => u.id === userId || u.name === "高浚然",
+        );
+        const skippedUsers = autoUsers.filter(
+          (u: any) => u.id !== userId && u.name !== "高浚然",
+        );
+        emit(
+          jsonLine({
+            type: "progress",
+            phase: "filter_time_window",
+            message: `时段过滤完成：${availableUsers.length} 人可签到，${skippedUsers.length} 人跳过`,
+            detail:
+              skippedUsers.length > 0
+                ? `跳过：${skippedUsers.map((u: any) => u.name).join("、")}`
+                : undefined,
+          }),
+        );
+
+        if (availableUsers.length === 0) {
+          throw new Error("限制时段内没有符合条件的用户（扫码者或高浚然）");
+        }
+      } else {
+        // Normal flow: filter absent users
+        emit(
+          jsonLine({
+            type: "progress",
+            phase: "filter_absence",
+            message: "正在检查请假状态...",
+          }),
+        );
+        const absentUsers: any[] = [];
+        for (const user of autoUsers) {
+          const isAbsent = await DatabaseService.isUserAbsent(
+            user.id,
+            currentTime,
+          );
+          if (isAbsent) {
+            absentUsers.push(user);
+          } else {
+            availableUsers.push(user);
+          }
+        }
+        emit(
+          jsonLine({
+            type: "progress",
+            phase: "filter_absence",
+            message: `请假过滤完成：${availableUsers.length} 人可签到，${absentUsers.length} 人请假`,
+            detail:
+              absentUsers.length > 0
+                ? `请假：${absentUsers.map((u: any) => u.name).join("、")}`
+                : undefined,
+          }),
+        );
+
+        if (availableUsers.length === 0) {
+          throw new Error("所有用户均已请假，无需签到");
+        }
       }
 
       // 5. Concurrent sign-in for all users
